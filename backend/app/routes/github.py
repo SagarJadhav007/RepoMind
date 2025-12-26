@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from app.services.github_auth import get_installation_access_token
 from app.services.github_api import fetch_repositories
 
