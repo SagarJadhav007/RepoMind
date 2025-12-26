@@ -2,6 +2,7 @@ import jwt
 import time
 import os
 import requests
+import base64
 
 GITHUB_API = "https://api.github.com"
 GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
