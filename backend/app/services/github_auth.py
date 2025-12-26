@@ -5,24 +5,26 @@ import requests
 
 GITHUB_API = "https://api.github.com"
 GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
-GITHUB_PRIVATE_KEY = os.getenv("GITHUB_PRIVATE_KEY")
+GITHUB_PRIVATE_KEY_B64 = os.getenv("GITHUB_PRIVATE_KEY_B64")
 
-def generate_github_app_jwt() -> str:
+def generate_github_app_jwt():
     now = int(time.time())
 
+    private_key = base64.b64decode(
+        GITHUB_PRIVATE_KEY_B64
+    ).decode("utf-8")
+
     payload = {
-        "iat": now - 60,          
-        "exp": now + 600,         
-        "iss": GITHUB_APP_ID      
+        "iat": now - 60,
+        "exp": now + 600,
+        "iss": GITHUB_APP_ID
     }
 
-    token = jwt.encode(
+    return jwt.encode(
         payload,
-        GITHUB_PRIVATE_KEY,
+        private_key,
         algorithm="RS256"
     )
-
-    return token
 
 
 def get_installation_access_token(installation_id: int) -> str:
