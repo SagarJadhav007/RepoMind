@@ -2,7 +2,7 @@ import requests
 
 def fetch_repositories(installation_token: str):
     headers = {
-        "Authorization": f"token {installation_token}",
+        "Authorization": f"Bearer {installation_token}",  # ✅ FIX
         "Accept": "application/vnd.github+json"
     }
 
