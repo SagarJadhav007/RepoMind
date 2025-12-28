@@ -100,12 +100,7 @@ def fetch_repositories(installation_token: str):
 
 # ---------------- Ingest Logic ---------------- #
 
-def ingest_repo_snapshot(
-    token: str,
-    installation_id: int,
-    owner: str,
-    repo_name: str
-):
+def ingest_repo_snapshot(token, installation_id, owner, repo_name):
     repo_data = get_repo(token, owner, repo_name)
     issues = get_open_issues(token, owner, repo_name)
     open_prs = get_open_prs(token, owner, repo_name)
@@ -125,59 +120,26 @@ def ingest_repo_snapshot(
         contributors
     )
 
-    conn = get_db()
-    cur = conn.cursor()
+    supabase = get_db()
 
-    cur.execute(
-        """
-        INSERT INTO repo_dashboard_snapshot (
-            repo_full_name,
-            installation_id,
-            description,
-            stars,
-            forks,
-            watchers,
-            open_prs,
-            open_issues,
-            commits_30d,
-            contributors,
-            merge_rate,
-            health_score
-        )
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        ON CONFLICT (repo_full_name)
-        DO UPDATE SET
-            description = EXCLUDED.description,
-            stars = EXCLUDED.stars,
-            forks = EXCLUDED.forks,
-            watchers = EXCLUDED.watchers,
-            open_prs = EXCLUDED.open_prs,
-            open_issues = EXCLUDED.open_issues,
-            commits_30d = EXCLUDED.commits_30d,
-            contributors = EXCLUDED.contributors,
-            merge_rate = EXCLUDED.merge_rate,
-            health_score = EXCLUDED.health_score,
-            updated_at = now()
-        """,
-        (
-            repo_data["full_name"],
-            installation_id,
-            repo_data["description"],
-            repo_data["stargazers_count"],
-            repo_data["forks_count"],
-            repo_data["subscribers_count"],
-            len(open_prs),
-            len(issues),
-            len(commits),
-            contributors,
-            merge_rate,
-            health
-        )
-    )
+    payload = {
+        "repo_full_name": repo_data["full_name"],
+        "installation_id": installation_id,
+        "description": repo_data["description"],
+        "stars": repo_data["stargazers_count"],
+        "forks": repo_data["forks_count"],
+        "watchers": repo_data["subscribers_count"],
+        "open_prs": len(open_prs),
+        "open_issues": len(issues),
+        "commits_30d": len(commits),
+        "contributors": contributors,
+        "merge_rate": merge_rate,
+        "health_score": health,
+    }
 
-    conn.commit()
-    cur.close()
-    conn.close()
+    supabase.table("repo_dashboard_snapshot") \
+        .upsert(payload, on_conflict="repo_full_name") \
+        .execute()
 
     return {
         "message": "Snapshot ingested",

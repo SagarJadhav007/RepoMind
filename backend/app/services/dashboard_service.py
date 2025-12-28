@@ -1,36 +1,21 @@
 from app.db import get_db
 
-
 def get_dashboard(repo_full_name: str):
-    conn = get_db()
-    cur = conn.cursor()
+    supabase = get_db()
 
-    cur.execute(
-        """
-        SELECT
-            repo_full_name,
-            description,
-            stars,
-            forks,
-            watchers,
-            open_prs,
-            open_issues,
-            commits_30d,
-            contributors,
-            merge_rate,
-            health_score
-        FROM repo_dashboard_snapshot
-        WHERE repo_full_name = %s
-        """,
-        (repo_full_name,)
+    res = (
+        supabase
+        .table("repo_dashboard_snapshot")
+        .select("*")
+        .eq("repo_full_name", repo_full_name)
+        .single()
+        .execute()
     )
 
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    if not row:
+    if not res.data:
         return None
+
+    row = res.data
 
     return {
         "repo": {
