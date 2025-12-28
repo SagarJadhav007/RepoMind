@@ -3,7 +3,7 @@ from app.services.github_api_service import (
     get_manager_open_prs,
     get_manager_open_issues,
 )
-from app.auth.github import get_installation_token  
+from app.services.github_auth import get_installation_access_token  
 
 router = APIRouter(prefix="/manager", tags=["Manager"])
 
@@ -12,7 +12,8 @@ router = APIRouter(prefix="/manager", tags=["Manager"])
 def manager_pull_requests(
     owner: str = Query(...),
     repo: str = Query(...),
-    token: str = Depends(get_installation_token),
+    installation_id: int = Query(...),
+    token: str = Depends(get_installation_access_token),
 ):
     prs = get_manager_open_prs(token, owner, repo)
     return {
@@ -25,7 +26,8 @@ def manager_pull_requests(
 def manager_issues(
     owner: str = Query(...),
     repo: str = Query(...),
-    token: str = Depends(get_installation_token),
+    installation_id: int = Query(...),
+    token: str = Depends(get_installation_access_token),
 ):
     issues = get_manager_open_issues(token, owner, repo)
     return {
