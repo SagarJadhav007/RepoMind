@@ -1,11 +1,16 @@
+from supabase import create_client, Client
+from dotenv import load_dotenv
 import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+load_dotenv() 
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError("Supabase env vars not loaded")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_db():
-    return psycopg2.connect(
-        DATABASE_URL,
-        cursor_factory=RealDictCursor
-    )
+    return supabase
