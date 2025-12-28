@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.github import router as github_router
 from app.routes.dashboard import router as dashboard_router
+from app.routes.manager import router as manager_router
 
 app = FastAPI()
 
@@ -21,3 +22,4 @@ def health():
 
 app.include_router(github_router)
 app.include_router(dashboard_router)
+app.include_router(manager_router)
