@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query
-from app.services.github_service import (
+from app.services.github_api_service import (
     get_manager_open_prs,
     get_manager_open_issues,
 )
-from app.auth.github import get_installation_token  # however you get token
+from app.auth.github import get_installation_token  
 
 router = APIRouter(prefix="/manager", tags=["Manager"])
 
