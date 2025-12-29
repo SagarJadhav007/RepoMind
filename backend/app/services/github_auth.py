@@ -34,7 +34,7 @@ def get_installation_access_token(installation_id: int) -> str:
     url = f"{GITHUB_API}/app/installations/{installation_id}/access_tokens"
 
     headers = {
-        "Authorization": f"Bearer {jwt_token}",  # MUST be Bearer
+        "Authorization": f"Bearer {jwt_token}",  
         "Accept": "application/vnd.github+json"
     }
 
