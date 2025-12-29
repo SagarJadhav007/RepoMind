@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, Query
 from app.services.github_auth import get_installation_access_token
 from app.services.github_api_service import fetch_repositories , ingest_repo_snapshot
 from app.auth.supabase import get_current_user
