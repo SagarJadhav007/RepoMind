@@ -1,182 +1,173 @@
+import { useEffect, useState } from "react";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
-import { pullRequests, issues, focusSuggestions } from "@/data/mockData";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useRepo } from "@/context/RepoContext";
+
 import {
   GitPullRequest,
   CircleDot,
-  Lightbulb,
-  AlertTriangle,
-  CheckCircle,
-  Clock,
   MessageSquare,
 } from "lucide-react";
 
-const prStatusConfig = {
-  "needs-review": {
-    label: "Needs Review",
-    color: "bg-warning/10 text-warning border-warning/20",
-  },
-  blocked: {
-    label: "Blocked",
-    color: "bg-destructive/10 text-destructive border-destructive/20",
-  },
-  ready: {
-    label: "Ready to Merge",
-    color: "bg-success/10 text-success border-success/20",
-  },
+type PR = {
+  id: number;
+  title: string;
+  author: string;
+  created_at: string;
+  labels: string[];
 };
 
-const priorityConfig = {
-  high: {
-    icon: AlertTriangle,
-    color: "text-destructive",
-  },
-  medium: {
-    icon: Clock,
-    color: "text-warning",
-  },
-  low: {
-    icon: CheckCircle,
-    color: "text-muted-foreground",
-  },
+type Issue = {
+  id: number;
+  title: string;
+  created_at: string;
+  labels: string[];
+  comments: number;
 };
 
 export default function Manage() {
+  const { repo } = useRepo();
+  const [prs, setPrs] = useState<PR[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!repo) return;
+
+    const [owner, repoName] = repo.split("/");
+
+    async function loadManagerData() {
+      try {
+        setLoading(true);
+
+        const session = (await supabase.auth.getSession()).data.session;
+        if (!session) return;
+
+        const headers = {
+          Authorization: `Bearer ${session.access_token}`,
+        };
+
+        const prRes = await fetch(
+          `https://repomind-577n.onrender.com/manager/pull-requests`,
+          { headers }
+        );
+
+        const issueRes = await fetch(
+          `https://repomind-577n.onrender.com/manager/issues`,
+          { headers }
+        );
+
+        setPrs((await prRes.json()).pull_requests || []);
+        setIssues((await issueRes.json()).issues || []);
+      } catch (err) {
+        console.error(err);
+        setPrs([]);
+        setIssues([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadManagerData();
+  }, [repo]);
+
+  if (!repo) {
+    return (
+      <WorkspaceLayout>
+        <div className="p-6 text-muted-foreground">
+          Select a repository from the sidebar
+        </div>
+      </WorkspaceLayout>
+    );
+  }
+
+  if (loading) {
+    return (
+      <WorkspaceLayout>
+        <div className="p-6">Loading manager console…</div>
+      </WorkspaceLayout>
+    );
+  }
+
   return (
     <WorkspaceLayout>
       <div className="space-y-6">
-        {/* Page Header */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Manager Console</h1>
-          <p className="mt-1 text-muted-foreground">
-            Review pull requests, manage issues, and get AI-powered focus suggestions.
+          <h1 className="text-2xl font-bold">Manager Console</h1>
+          <p className="text-muted-foreground">
+            Review pull requests and issues
           </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Pull Requests */}
-          <div className="rounded-lg border border-border bg-card shadow-card">
-            <div className="border-b border-border px-6 py-4">
-              <div className="flex items-center gap-2">
-                <GitPullRequest className="h-5 w-5 text-accent" />
-                <h2 className="text-lg font-semibold text-card-foreground">Pull Requests</h2>
-              </div>
+          <div className="rounded-lg border bg-card">
+            <div className="border-b px-6 py-4 flex items-center gap-2">
+              <GitPullRequest className="h-5 w-5 text-accent" />
+              <h2 className="font-semibold">Pull Requests</h2>
             </div>
-            <div className="divide-y divide-border">
-              {pullRequests.map((pr) => {
-                const statusConfig = prStatusConfig[pr.status];
-                return (
-                  <div
-                    key={pr.id}
-                    className="px-6 py-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-card-foreground truncate">
-                          #{pr.id} {pr.title}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          by @{pr.author} · {pr.createdAt}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {pr.labels.map((label) => (
-                            <Badge
-                              key={label}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {label}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={cn("shrink-0", statusConfig.color)}
-                      >
-                        {statusConfig.label}
-                      </Badge>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Issues */}
-          <div className="rounded-lg border border-border bg-card shadow-card">
-            <div className="border-b border-border px-6 py-4">
-              <div className="flex items-center gap-2">
-                <CircleDot className="h-5 w-5 text-warning" />
-                <h2 className="text-lg font-semibold text-card-foreground">Issues</h2>
-              </div>
-            </div>
-            <div className="divide-y divide-border">
-              {issues.map((issue) => (
-                <div
-                  key={issue.id}
-                  className="px-6 py-4 transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-card-foreground truncate">
-                        #{issue.id} {issue.title}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {issue.createdAt}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {issue.labels.map((label) => (
-                          <Badge
-                            key={label}
-                            variant="outline"
-                            className={cn(
-                              "text-xs",
-                              label === "high-impact" &&
-                                "bg-destructive/10 text-destructive border-destructive/20"
-                            )}
-                          >
-                            {label}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      {issue.comments}
-                    </div>
+            <div className="divide-y">
+              {prs.map((pr) => (
+                <div key={pr.id} className="px-6 py-4">
+                  <p className="font-medium">
+                    #{pr.id} {pr.title}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    by @{pr.author}
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {pr.labels.map((l) => (
+                      <Badge key={l} variant="outline" className="text-xs">
+                        {l}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Focus Suggestions */}
-        <div className="rounded-lg border border-border bg-card shadow-card">
-          <div className="border-b border-border px-6 py-4">
-            <div className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-accent" />
-              <h2 className="text-lg font-semibold text-card-foreground">Focus Suggestions</h2>
+          {/* Issues */}
+          <div className="rounded-lg border bg-card">
+            <div className="border-b px-6 py-4 flex items-center gap-2">
+              <CircleDot className="h-5 w-5 text-warning" />
+              <h2 className="font-semibold">Issues</h2>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              AI-powered insights to help you prioritize work
-            </p>
-          </div>
-          <div className="divide-y divide-border">
-            {focusSuggestions.map((suggestion) => {
-              const config = priorityConfig[suggestion.priority];
-              return (
-                <div
-                  key={suggestion.id}
-                  className="flex items-start gap-4 px-6 py-4"
-                >
-                  <config.icon className={cn("mt-0.5 h-5 w-5 shrink-0", config.color)} />
-                  <p className="text-sm text-card-foreground">{suggestion.insight}</p>
+
+            <div className="divide-y">
+              {issues.map((issue) => (
+                <div key={issue.id} className="px-6 py-4">
+                  <p className="font-medium">
+                    #{issue.id} {issue.title}
+                  </p>
+
+                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <MessageSquare className="h-4 w-4" />
+                    {issue.comments}
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {issue.labels.map((l) => (
+                      <Badge
+                        key={l}
+                        variant="outline"
+                        className={cn(
+                          "text-xs",
+                          l === "high-impact" &&
+                            "bg-destructive/10 text-destructive border-destructive/20"
+                        )}
+                      >
+                        {l}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
       </div>

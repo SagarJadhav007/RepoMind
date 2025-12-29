@@ -14,6 +14,11 @@ import Assistant from "./pages/workspace/Assistant";
 import Activity from "./pages/workspace/Activity";
 import Profile from "./pages/workspace/Profile";
 import NotFound from "./pages/NotFound";
+import Auth from "./pages/Auth";
+import RequireAuth from "./components/RequireAuth";
+import { RepoProvider } from "./context/RepoContext";
+import SelectRepo from "./pages/SelectRepo";
+import ConnectGithub from "./pages/ConnectGithub";
 
 const queryClient = new QueryClient();
 
@@ -23,10 +28,14 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <RepoProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/workspace/demo" element={<Dashboard />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/select-repo" element={<SelectRepo />} />
+            <Route path="/connect-github" element={<ConnectGithub />} />
+            <Route path="/workspace/demo" element={<RequireAuth><Dashboard /></RequireAuth>} />
             <Route path="/workspace/demo/health" element={<Health />} />
             <Route path="/workspace/demo/manage" element={<Manage />} />
             <Route path="/workspace/demo/contributors" element={<Contributors />} />
@@ -37,6 +46,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </RepoProvider>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

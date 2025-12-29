@@ -5,10 +5,10 @@ from app.routes.github import router as github_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.manager import router as manager_router
 from app.routes.auth import router as auth_router
+from app.routes.user import router as user_router
 
 app = FastAPI()
 
-# 🔓 Allow ALL origins (dev-friendly)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,3 +25,4 @@ app.include_router(auth_router)
 app.include_router(github_router)
 app.include_router(dashboard_router)
 app.include_router(manager_router)
+app.include_router(user_router)

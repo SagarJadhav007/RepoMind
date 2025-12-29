@@ -1,9 +1,10 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useRepo } from "@/context/RepoContext";
+import { supabase } from "@/lib/supabase";
 import {
   LayoutDashboard,
-  Activity,
   Heart,
   Settings,
   Users,
@@ -16,13 +17,10 @@ import {
   FolderGit2,
   GitBranch,
   User,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-
-interface WorkspaceLayoutProps {
-  children: ReactNode;
-}
 
 const navigation = [
   { name: "Dashboard", href: "/workspace/demo", icon: LayoutDashboard },
@@ -34,49 +32,60 @@ const navigation = [
   { name: "Activity", href: "/workspace/demo/activity", icon: History },
 ];
 
-const projects = [
-  { name: "repomind-core", status: "active" },
-  { name: "repomind-cli", status: "active" },
-  { name: "docs-website", status: "inactive" },
-];
-
-export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
+export function WorkspaceLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [repos, setRepos] = useState<string[]>([]);
+  const { repo, setRepo } = useRepo();
+
+  useEffect(() => {
+    async function loadRepos() {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) return;
+
+      const res = await fetch(
+        "https://repomind-577n.onrender.com/github/repos",
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+      setRepos(data.map((r: any) => r.full_name));
+
+      if (!repo && data.length) {
+        setRepo(data[0].full_name);
+      }
+    }
+
+    loadRepos();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur">
         <div className="flex h-14 items-center gap-4 px-6">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="h-8 w-8"
           >
-            {sidebarOpen ? (
-              <PanelLeftClose className="h-4 w-4" />
-            ) : (
-              <PanelLeft className="h-4 w-4" />
-            )}
+            {sidebarOpen ? <PanelLeftClose /> : <PanelLeft />}
           </Button>
-          <div className="h-4 w-px bg-border" />
-          <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronLeft className="h-4 w-4" />
-            <span className="text-sm">Back</span>
-          </Link>
-          <div className="h-4 w-px bg-border" />
+
           <Link to="/" className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-accent" />
-            <span className="font-semibold text-foreground">RepoMind</span>
+            <span className="font-semibold">RepoMind</span>
           </Link>
-          <div className="ml-auto flex items-center gap-2">
+
+          <div className="ml-auto flex gap-2">
             <ThemeToggle />
             <Link to="/workspace/demo/profile">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <User className="h-4 w-4" />
-                <span className="sr-only">Profile</span>
+              <Button variant="ghost" size="icon">
+                <User />
               </Button>
             </Link>
           </div>
@@ -87,61 +96,54 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
         {/* Sidebar */}
         <aside
           className={cn(
-            "sticky top-14 h-[calc(100vh-3.5rem)] shrink-0 border-r border-border bg-card/50 transition-all duration-300 flex flex-col",
-            sidebarOpen ? "w-64" : "w-0 overflow-hidden border-r-0"
+            "border-r bg-card/50 transition-all",
+            sidebarOpen ? "w-64" : "w-0 overflow-hidden"
           )}
         >
-          <nav className="flex flex-col gap-1 p-4 flex-1">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
-                    isActive
-                      ? "bg-accent/10 text-accent"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {item.name}
-                </Link>
-              );
-            })}
+          <nav className="p-4 space-y-1">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md",
+                  location.pathname === item.href
+                    ? "bg-accent/10 text-accent"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.name}
+              </Link>
+            ))}
           </nav>
 
-          {/* Projects Section */}
-          <div className="border-t border-border p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <FolderGit2 className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Projects</span>
+          {/* Projects */}
+          <div className="border-t p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FolderGit2 className="h-4 w-4" />
+              <span className="text-xs font-semibold">Projects</span>
             </div>
-            <div className="flex flex-col gap-1">
-              {projects.map((project) => (
-                <div
-                  key={project.name}
-                  className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
-                >
-                  <GitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-sm text-foreground truncate">{project.name}</span>
-                  <span
-                    className={cn(
-                      "ml-auto h-2 w-2 rounded-full shrink-0",
-                      project.status === "active" ? "bg-green-500" : "bg-muted-foreground/40"
-                    )}
-                  />
-                </div>
-              ))}
-            </div>
+
+            {repos.map((r) => (
+              <div
+                key={r}
+                onClick={() => setRepo(r)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded cursor-pointer",
+                  repo === r
+                    ? "bg-accent/10 text-accent"
+                    : "hover:bg-muted"
+                )}
+              >
+                <GitBranch className="h-4 w-4" />
+                <span className="truncate">{r.split("/")[1]}</span>
+              </div>
+            ))}
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 p-6">
-          <div className="mx-auto max-w-6xl">{children}</div>
-        </main>
+        <main className="flex-1 p-6 max-w-6xl mx-auto">{children}</main>
       </div>
     </div>
   );
