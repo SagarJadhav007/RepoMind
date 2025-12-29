@@ -15,10 +15,10 @@ import Activity from "./pages/workspace/Activity";
 import Profile from "./pages/workspace/Profile";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import RequireAuth from "./components/RequireAuth";
 import { RepoProvider } from "./context/RepoContext";
 import SelectRepo from "./pages/SelectRepo";
 import ConnectGithub from "./pages/ConnectGithub";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -35,9 +35,9 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/select-repo" element={<SelectRepo />} />
             <Route path="/connect-github" element={<ConnectGithub />} />
-            <Route path="/workspace/demo" element={<RequireAuth><Dashboard /></RequireAuth>} />
+            <Route path="/workspace/demo" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/workspace/demo/health" element={<Health />} />
-            <Route path="/workspace/demo/manage" element={<Manage />} />
+            <Route path="/workspace/demo/manage" element={<ProtectedRoute><Manage /></ProtectedRoute>} />
             <Route path="/workspace/demo/contributors" element={<Contributors />} />
             <Route path="/workspace/demo/planning" element={<Planning />} />
             <Route path="/workspace/demo/assistant" element={<Assistant />} />

@@ -9,7 +9,7 @@ router = APIRouter(prefix="/github")
 @router.get("/callback")
 def github_callback(
     installation_id: int,
-    state: str | None = None,  
+    state: str | None = None,
     setup_action: str | None = None,
 ):
     if not state:
@@ -17,16 +17,14 @@ def github_callback(
 
     supabase = get_db()
 
-    
     supabase.table("github_installations").upsert(
         {
-            "user_id": state,
+            "user_id": state,               # Supabase user id
             "installation_id": installation_id,
         },
         on_conflict="user_id,installation_id"
     ).execute()
 
-    
     return RedirectResponse(
         url=f"http://localhost:8080/select-repo?installation_id={installation_id}"
     )

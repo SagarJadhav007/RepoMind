@@ -1,27 +1,26 @@
-import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 export default function ConnectGithub() {
-  const navigate = useNavigate();
+  const connect = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        navigate("/auth");
-      }
-    });
-  }, []);
+    if (!session) {
+      alert("Not authenticated");
+      return;
+    }
+
+    const userId = session.user.id;
+
+    window.location.href =
+      `https://github.com/apps/RepoMind-App/installations/new?state=${userId}`;
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <Button
-        onClick={() => {
-          window.location.href =
-            "https://github.com/apps/RepoMind-App/installations/new";
-        }}
-      >
+      <Button onClick={connect}>
         Connect GitHub Repositories
       </Button>
     </div>

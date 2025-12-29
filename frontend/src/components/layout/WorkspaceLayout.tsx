@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { logout } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const navigation = [
   { name: "Dashboard", href: "/workspace/demo", icon: LayoutDashboard },
@@ -33,6 +35,7 @@ const navigation = [
 ];
 
 export function WorkspaceLayout({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [repos, setRepos] = useState<string[]>([]);
@@ -82,6 +85,16 @@ export function WorkspaceLayout({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="ml-auto flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await logout();
+                navigate("/auth");
+              }}
+            >
+              Logout
+            </Button>
             <ThemeToggle />
             <Link to="/workspace/demo/profile">
               <Button variant="ghost" size="icon">
