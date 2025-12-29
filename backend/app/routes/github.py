@@ -3,6 +3,13 @@ from app.services.github_auth import get_installation_access_token
 from app.services.github_api_service import fetch_repositories , ingest_repo_snapshot
 from app.auth.supabase import get_current_user
 from app.db import get_db
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+
+class SyncRequest(BaseModel):
+    installation_id: int
+    repo: str
+
 
 router = APIRouter(prefix="/github")
 
@@ -37,21 +44,21 @@ async def github_webhook(request: Request):
     return {"status": "received"}
 
 @router.post("/sync")
-def sync_dashboard(installation_id: int, repo: str):
-    owner, repo_name = repo.split("/")
-    token = get_installation_access_token(installation_id)
-    return ingest_repo_snapshot(token, installation_id, owner, repo_name)
+def sync_dashboard(payload: SyncRequest):
+    owner, repo_name = payload.repo.split("/")
+    token = get_installation_access_token(payload.installation_id)
 
-from fastapi import APIRouter, Query
-from app.services.github_auth import get_installation_access_token
-from app.services.github_api_service import fetch_repositories
-
-router = APIRouter(prefix="/github", tags=["GitHub"])
-
+    return ingest_repo_snapshot(
+        token,
+        payload.installation_id,
+        owner,
+        repo_name
+    )
 
 @router.get("/repos")
 def list_installation_repos(
-    installation_id: int = Query(...)
+    installation_id: int = Query(...),
+    user = Depends(get_current_user),
 ):
     token = get_installation_access_token(installation_id)
     repos = fetch_repositories(token)

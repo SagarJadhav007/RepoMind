@@ -1,95 +1,90 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 
 type Repo = {
-    full_name: string;
-    private: boolean;
-    owner: string;
+  full_name: string;
+  owner: string;
+  private: boolean;
 };
 
 export default function SelectRepo() {
-    const [repos, setRepos] = useState<Repo[]>([]);
-    const [selected, setSelected] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
+  const [repos, setRepos] = useState<Repo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
 
-    const [params] = useSearchParams();
-    const installationId = params.get("installation_id");
-    const navigate = useNavigate();
+  const installationId = params.get("installation_id");
 
-    useEffect(() => {
-        async function loadRepos() {
-            if (!installationId) return;
+  useEffect(() => {
+    async function loadRepos() {
+      if (!installationId) return;
 
-            const res = await fetch(
-                `https://repomind-577n.onrender.com/github/repos?installation_id=${installationId}`
-            );
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) return;
 
-            setRepos(await res.json());
-            setLoading(false);
+      const res = await fetch(
+        `https://repomind-577n.onrender.com/github/repos?installation_id=${installationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         }
+      );
 
-        loadRepos();
-    }, [installationId]);
+      const data = await res.json();
+      setRepos(data);
+      setLoading(false);
+    }
 
-    const continueToDashboard = async () => {
-        if (!selected || !installationId) return;
+    loadRepos();
+  }, [installationId]);
 
-        const session = (await supabase.auth.getSession()).data.session;
-        if (!session) return;
+  const selectRepo = async (repo: string) => {
+  const res = await fetch(
+    "https://repomind-577n.onrender.com/github/sync",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        installation_id: Number(installationId),
+        repo,
+      }),
+    }
+  );
 
-        await fetch("https://repomind-577n.onrender.com/user/select-repo", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-                installation_id: installationId,
-                repo_full_name: selected,
-            }),
-        });
+  if (!res.ok) {
+    alert("Failed to sync repo");
+    return;
+  }
 
-        navigate("/workspace/demo");
-    };
+  navigate(`/workspace/demo?repo=${repo}`);
+};
 
-    if (loading) return <div className="p-6">Loading repositories…</div>;
+  if (loading) return <div className="p-6">Loading repositories...</div>;
 
-    return (
-        <div className="min-h-screen flex items-center justify-center">
-            <Card className="w-full max-w-lg">
-                <CardHeader>
-                    <CardTitle>Select a repository</CardTitle>
-                </CardHeader>
+  return (
+    <div className="min-h-screen flex justify-center p-6">
+      <div className="w-full max-w-2xl space-y-4">
+        <h1 className="text-2xl font-bold">Select Repository</h1>
 
-                <CardContent className="space-y-3">
-                    {repos.map((repo) => (
-                        <button
-                            key={repo.full_name}
-                            onClick={() => setSelected(repo.full_name)}
-                            className={`w-full text-left px-4 py-3 rounded-md border ${selected === repo.full_name
-                                    ? "border-primary bg-primary/10"
-                                    : "border-border hover:bg-muted"
-                                }`}
-                        >
-                            <p className="font-medium">{repo.full_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                                {repo.private ? "Private" : "Public"}
-                            </p>
-                        </button>
-                    ))}
-
-                    <Button
-                        className="w-full mt-4"
-                        disabled={!selected}
-                        onClick={continueToDashboard}
-                    >
-                        Continue
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
-    );
+        {repos.map((repo) => (
+          <Card key={repo.full_name}>
+            <CardHeader>
+              <CardTitle>{repo.full_name}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-end">
+              <Button onClick={() => selectRepo(repo.full_name)}>
+                Use this repo
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
