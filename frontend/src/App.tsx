@@ -19,6 +19,7 @@ import { RepoProvider } from "./context/RepoContext";
 import SelectRepo from "./pages/SelectRepo";
 import ConnectGithub from "./pages/ConnectGithub";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RepoFilesPage from "./pages/RepoFiles";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
         <RepoProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/fetch-files" element={<RepoFilesPage></RepoFilesPage>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/select-repo" element={<SelectRepo />} />
             <Route path="/connect-github" element={<ConnectGithub />} />
