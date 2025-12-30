@@ -13,7 +13,7 @@ def dashboard(repo: str, user=Depends(get_current_user)):
 
     data = (
         supabase
-        .table("repo_snapshots")
+        .table("repo_dashboard_snapshot")
         .select("*")
         .eq("repo_full_name", repo)
         .eq("user_id", user["id"])   

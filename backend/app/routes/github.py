@@ -44,7 +44,10 @@ async def github_webhook(request: Request):
     return {"status": "received"}
 
 @router.post("/sync")
-def sync_dashboard(payload: SyncRequest):
+def sync_dashboard(
+    payload: SyncRequest,
+    user=Depends(get_current_user)
+):
     owner, repo_name = payload.repo.split("/")
     token = get_installation_access_token(payload.installation_id)
 
@@ -52,7 +55,8 @@ def sync_dashboard(payload: SyncRequest):
         token,
         payload.installation_id,
         owner,
-        repo_name
+        repo_name,
+        user["id"]
     )
 
 @router.get("/repos")
@@ -88,7 +92,7 @@ def list_user_repos(user=Depends(get_current_user)):
 
     res = (
         supabase
-        .table("repo_snapshots")
+        .table("repo_dashboard_snapshot")
         .select("repo_full_name")
         .eq("user_id", user["id"])
         .execute()
