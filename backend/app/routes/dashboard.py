@@ -1,32 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from app.auth.supabase import get_current_user
-from app.services.dashboard_service import get_dashboard
-from app.services.user_repo_service import get_active_repo
 from app.db import get_db
 
 router = APIRouter(prefix="/dashboard")
-
 
 @router.get("/")
 def dashboard(repo: str, user=Depends(get_current_user)):
     supabase = get_db()
 
-    data = (
+    res = (
         supabase
         .table("repo_dashboard_snapshot")
         .select("*")
         .eq("repo_full_name", repo)
-        .eq("user_id", user["id"])   
-        .single()
+        .eq("user_id", user["id"]) 
         .execute()
     )
 
-    if not data.data:
-        raise HTTPException(
-            status_code=404,
-            detail="Repo not synced yet"
-        )
+    if not res.data:
+        return {
+            "status": "not_synced",
+            "message": "Repository not synced yet",
+            "repo": repo
+        }
 
-    return data.data
-
-
+    return res.data[0]   
