@@ -51,16 +51,35 @@ export default function SelectRepo() {
   }, [installationId]);
 
   const selectRepo = async (repo: string) => {
-    await fetch("https://repomind-577n.onrender.com/github/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        installation_id: Number(installationId),
-        repo,
-      }),
-    });
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      alert("Not authenticated");
+      return;
+    }
 
-    navigate(`/workspace/demo?repo=${repo}`);
+    const res = await fetch(
+      "https://repomind-577n.onrender.com/github/sync",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session.access_token}`, // ✅ FIX
+        },
+        body: JSON.stringify({
+          installation_id: Number(installationId),
+          repo,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(err);
+      alert("Failed to sync repository");
+      return;
+    }
+
+    navigate("/workspace/demo");
   };
 
   if (loading) return <div className="p-6">Loading repositories…</div>;

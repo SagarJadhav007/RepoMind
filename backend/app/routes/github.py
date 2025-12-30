@@ -3,7 +3,10 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from app.services.github_auth import get_installation_access_token
-from app.services.github_api_service import fetch_repositories, ingest_repo_snapshot
+from app.services.github_api_service import (
+    fetch_repositories,
+    ingest_repo_snapshot,
+)
 from app.auth.supabase import get_current_user
 from app.db import get_db
 
@@ -31,10 +34,10 @@ def github_callback(
 
     supabase.table("github_installations").upsert(
         {
-            "user_id": state,          # Supabase user id
+            "user_id": state,
             "installation_id": installation_id,
         },
-        on_conflict="user_id,installation_id"
+        on_conflict="user_id,installation_id",
     ).execute()
 
     return RedirectResponse(
@@ -43,7 +46,7 @@ def github_callback(
 
 
 # -------------------------------------------------
-# GitHub webhook (future use)
+# GitHub webhook (future)
 # -------------------------------------------------
 @router.post("/webhook")
 async def github_webhook(request: Request):
@@ -53,7 +56,7 @@ async def github_webhook(request: Request):
 
 
 # -------------------------------------------------
-# Sync a repository
+# Sync repository (NEW OR OLD)
 # -------------------------------------------------
 @router.post("/sync")
 def sync_dashboard(
@@ -62,10 +65,9 @@ def sync_dashboard(
 ):
     supabase = get_db()
 
-    # 🔒 verify installation belongs to user
+    # 🔐 verify installation belongs to user
     inst = (
-        supabase
-        .table("github_installations")
+        supabase.table("github_installations")
         .select("installation_id")
         .eq("installation_id", payload.installation_id)
         .eq("user_id", user["id"])
@@ -76,7 +78,11 @@ def sync_dashboard(
     if not inst.data:
         raise HTTPException(403, "Installation not owned by user")
 
-    owner, repo_name = payload.repo.split("/")
+    try:
+        owner, repo_name = payload.repo.split("/", 1)
+    except ValueError:
+        raise HTTPException(400, "Invalid repo format")
+
     token = get_installation_access_token(payload.installation_id)
 
     return ingest_repo_snapshot(
@@ -89,7 +95,7 @@ def sync_dashboard(
 
 
 # -------------------------------------------------
-# List repos inside a GitHub installation
+# List repos in installation
 # -------------------------------------------------
 @router.get("/repos")
 def list_installation_repos(
@@ -98,10 +104,8 @@ def list_installation_repos(
 ):
     supabase = get_db()
 
-    # 🔒 verify ownership
     inst = (
-        supabase
-        .table("github_installations")
+        supabase.table("github_installations")
         .select("installation_id")
         .eq("installation_id", installation_id)
         .eq("user_id", user["id"])
@@ -126,15 +130,14 @@ def list_installation_repos(
 
 
 # -------------------------------------------------
-# List installations of current user
+# List user installations
 # -------------------------------------------------
 @router.get("/installations")
 def list_user_installations(user=Depends(get_current_user)):
     supabase = get_db()
 
     res = (
-        supabase
-        .table("github_installations")
+        supabase.table("github_installations")
         .select("installation_id")
         .eq("user_id", user["id"])
         .execute()
@@ -144,15 +147,14 @@ def list_user_installations(user=Depends(get_current_user)):
 
 
 # -------------------------------------------------
-# List repos already synced by user
+# List synced repos (dashboard sidebar)
 # -------------------------------------------------
 @router.get("/repos/available")
 def list_user_repos(user=Depends(get_current_user)):
     supabase = get_db()
 
     res = (
-        supabase
-        .table("repo_dashboard_snapshot")
+        supabase.table("repo_dashboard_snapshot")
         .select("repo_full_name")
         .eq("user_id", user["id"])
         .execute()
