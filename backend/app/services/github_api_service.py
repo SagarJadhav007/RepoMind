@@ -98,9 +98,13 @@ def fetch_repositories(installation_token: str):
     return r.json()["repositories"]
 
 
-# ---------------- Ingest Logic ---------------- #
-
-def ingest_repo_snapshot(token, installation_id, owner, repo_name):
+def ingest_repo_snapshot(
+    token: str,
+    installation_id: int,
+    owner: str,
+    repo_name: str,
+    user_id: str,
+):
     repo_data = get_repo(token, owner, repo_name)
     issues = get_open_issues(token, owner, repo_name)
     open_prs = get_open_prs(token, owner, repo_name)
@@ -125,7 +129,8 @@ def ingest_repo_snapshot(token, installation_id, owner, repo_name):
     payload = {
         "repo_full_name": repo_data["full_name"],
         "installation_id": installation_id,
-        "description": repo_data["description"],
+        "user_id": user_id,                      # ✅ FIX
+        "description": repo_data.get("description"),
         "stars": repo_data["stargazers_count"],
         "forks": repo_data["forks_count"],
         "watchers": repo_data["subscribers_count"],
@@ -135,6 +140,7 @@ def ingest_repo_snapshot(token, installation_id, owner, repo_name):
         "contributors": contributors,
         "merge_rate": merge_rate,
         "health_score": health,
+        "updated_at": datetime.utcnow(),
     }
 
     supabase.table("repo_dashboard_snapshot") \
@@ -145,6 +151,7 @@ def ingest_repo_snapshot(token, installation_id, owner, repo_name):
         "message": "Snapshot ingested",
         "repo": repo_data["full_name"]
     }
+
 
 # Manager Console Api
 def get_manager_open_prs(token: str, owner: str, repo: str):

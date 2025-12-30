@@ -1,18 +1,23 @@
-from fastapi import APIRouter, Request, Depends, Query
-from app.services.github_auth import get_installation_access_token
-from app.services.github_api_service import fetch_repositories , ingest_repo_snapshot
-from app.auth.supabase import get_current_user
-from app.db import get_db
+from fastapi import APIRouter, Request, Depends, Query, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+
+from app.services.github_auth import get_installation_access_token
+from app.services.github_api_service import fetch_repositories, ingest_repo_snapshot
+from app.auth.supabase import get_current_user
+from app.db import get_db
+
+router = APIRouter(prefix="/github")
+
 
 class SyncRequest(BaseModel):
     installation_id: int
     repo: str
 
 
-router = APIRouter(prefix="/github")
-
+# -------------------------------------------------
+# GitHub App callback
+# -------------------------------------------------
 @router.get("/callback")
 def github_callback(
     installation_id: int,
@@ -20,13 +25,13 @@ def github_callback(
     setup_action: str | None = None,
 ):
     if not state:
-        return {"error": "Missing user state"}
+        raise HTTPException(400, "Missing user state")
 
     supabase = get_db()
 
     supabase.table("github_installations").upsert(
         {
-            "user_id": state,               # Supabase user id
+            "user_id": state,          # Supabase user id
             "installation_id": installation_id,
         },
         on_conflict="user_id,installation_id"
@@ -37,33 +42,76 @@ def github_callback(
     )
 
 
+# -------------------------------------------------
+# GitHub webhook (future use)
+# -------------------------------------------------
 @router.post("/webhook")
 async def github_webhook(request: Request):
     payload = await request.json()
     print("Webhook received:", payload.get("action"))
     return {"status": "received"}
 
+
+# -------------------------------------------------
+# Sync a repository
+# -------------------------------------------------
 @router.post("/sync")
 def sync_dashboard(
     payload: SyncRequest,
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
+    supabase = get_db()
+
+    # 🔒 verify installation belongs to user
+    inst = (
+        supabase
+        .table("github_installations")
+        .select("installation_id")
+        .eq("installation_id", payload.installation_id)
+        .eq("user_id", user["id"])
+        .single()
+        .execute()
+    )
+
+    if not inst.data:
+        raise HTTPException(403, "Installation not owned by user")
+
     owner, repo_name = payload.repo.split("/")
     token = get_installation_access_token(payload.installation_id)
 
     return ingest_repo_snapshot(
-        token,
-        payload.installation_id,
-        owner,
-        repo_name,
-        user["id"]
+        token=token,
+        installation_id=payload.installation_id,
+        owner=owner,
+        repo_name=repo_name,
+        user_id=user["id"],
     )
 
+
+# -------------------------------------------------
+# List repos inside a GitHub installation
+# -------------------------------------------------
 @router.get("/repos")
 def list_installation_repos(
     installation_id: int = Query(...),
-    user = Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
+    supabase = get_db()
+
+    # 🔒 verify ownership
+    inst = (
+        supabase
+        .table("github_installations")
+        .select("installation_id")
+        .eq("installation_id", installation_id)
+        .eq("user_id", user["id"])
+        .single()
+        .execute()
+    )
+
+    if not inst.data:
+        raise HTTPException(403, "Installation not owned by user")
+
     token = get_installation_access_token(installation_id)
     repos = fetch_repositories(token)
 
@@ -76,16 +124,28 @@ def list_installation_repos(
         for r in repos
     ]
 
+
+# -------------------------------------------------
+# List installations of current user
+# -------------------------------------------------
 @router.get("/installations")
 def list_user_installations(user=Depends(get_current_user)):
     supabase = get_db()
-    res = supabase.table("github_installations") \
-        .select("installation_id") \
-        .eq("user_id", user["id"]) \
+
+    res = (
+        supabase
+        .table("github_installations")
+        .select("installation_id")
+        .eq("user_id", user["id"])
         .execute()
+    )
 
     return res.data
 
+
+# -------------------------------------------------
+# List repos already synced by user
+# -------------------------------------------------
 @router.get("/repos/available")
 def list_user_repos(user=Depends(get_current_user)):
     supabase = get_db()
