@@ -77,7 +77,7 @@ def list_user_installations(user=Depends(get_current_user)):
     supabase = get_db()
     res = supabase.table("github_installations") \
         .select("installation_id") \
-        .eq("user_id", user["sub"]) \
+        .eq("user_id", user["id"]) \
         .execute()
 
     return res.data
@@ -90,7 +90,7 @@ def list_user_repos(user=Depends(get_current_user)):
         supabase
         .table("repo_snapshots")
         .select("repo_full_name")
-        .eq("user_id", user["sub"])
+        .eq("user_id", user["id"])
         .execute()
     )
 

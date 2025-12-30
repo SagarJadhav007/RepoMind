@@ -20,4 +20,5 @@ def get_current_user(token=Depends(security)):
     if res.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid Supabase token")
 
-    return res.json()  # contains id, email, etc.
+    return res.json()
+
