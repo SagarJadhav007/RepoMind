@@ -21,29 +21,27 @@ export default function SelectRepo() {
   useEffect(() => {
     async function loadRepos() {
       try {
-        if (!installationId) return;
+        if (!installationId) throw new Error("Missing installation_id");
 
-        const session = (await supabase.auth.getSession()).data.session;
-        if (!session) throw new Error("Not authenticated");
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) throw new Error("Not authenticated");
 
         const res = await fetch(
           `https://repomind-577n.onrender.com/github/repos?installation_id=${installationId}`,
           {
             headers: {
-              Authorization: `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${data.session.access_token}`,
             },
           }
         );
 
-        const data = await res.json();
+        const json = await res.json();
+        if (!Array.isArray(json)) throw new Error("Invalid repo response");
 
-        if (!res.ok || !Array.isArray(data)) {
-          throw new Error(data.detail || "Failed to fetch repos");
-        }
-
-        setRepos(data);
-      } catch (e: any) {
-        alert(e.message);
+        setRepos(json);
+      } catch (e) {
+        console.error(e);
+        alert("Failed to fetch repositories");
       } finally {
         setLoading(false);
       }
@@ -53,36 +51,19 @@ export default function SelectRepo() {
   }, [installationId]);
 
   const selectRepo = async (repo: string) => {
-    try {
-      const session = (await supabase.auth.getSession()).data.session;
-      if (!session) throw new Error("Not authenticated");
+    await fetch("https://repomind-577n.onrender.com/github/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        installation_id: Number(installationId),
+        repo,
+      }),
+    });
 
-      const res = await fetch(
-        "https://repomind-577n.onrender.com/github/sync",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            installation_id: Number(installationId),
-            repo,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to sync repo");
-      }
-
-      navigate(`/workspace/demo?repo=${repo}`);
-    } catch (e: any) {
-      alert(e.message);
-    }
+    navigate(`/workspace/demo?repo=${repo}`);
   };
 
-  if (loading) return <div className="p-6">Loading repositories...</div>;
+  if (loading) return <div className="p-6">Loading repositories…</div>;
 
   return (
     <div className="min-h-screen flex justify-center p-6">

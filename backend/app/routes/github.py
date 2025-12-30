@@ -72,3 +72,26 @@ def list_installation_repos(
         for r in repos
     ]
 
+@router.get("/installations")
+def list_user_installations(user=Depends(get_current_user)):
+    supabase = get_db()
+    res = supabase.table("github_installations") \
+        .select("installation_id") \
+        .eq("user_id", user["sub"]) \
+        .execute()
+
+    return res.data
+
+@router.get("/repos/available")
+def list_user_repos(user=Depends(get_current_user)):
+    supabase = get_db()
+
+    res = (
+        supabase
+        .table("repo_snapshots")
+        .select("repo_full_name")
+        .eq("user_id", user["sub"])
+        .execute()
+    )
+
+    return res.data

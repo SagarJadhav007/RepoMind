@@ -7,13 +7,24 @@ router = APIRouter(prefix="/dashboard")
 
 
 @router.get("/")
-def dashboard(user=Depends(get_current_user)):
-    active = get_active_repo(user["sub"])
-    if not active:
-        raise HTTPException(404, "No active repo")
+def dashboard(repo: str, user=Depends(get_current_user)):
+    supabase = get_db()
 
-    data = get_dashboard(active["repo_full_name"])
-    if not data:
-        raise HTTPException(404, "Snapshot not found")
+    data = (
+        supabase
+        .table("repo_snapshots")
+        .select("*")
+        .eq("repo_full_name", repo)
+        .single()
+        .execute()
+    )
 
-    return data
+    if not data.data:
+        return {
+            "error": "Repo not synced yet",
+            "repo": repo
+        }
+
+    return data.data
+
+

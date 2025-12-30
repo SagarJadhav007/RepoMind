@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 type RepoContextType = {
   repo: string | null;
@@ -8,9 +9,18 @@ type RepoContextType = {
 const RepoContext = createContext<RepoContextType | null>(null);
 
 export function RepoProvider({ children }: { children: React.ReactNode }) {
+  const [params] = useSearchParams();
   const [repo, setRepoState] = useState<string | null>(
     localStorage.getItem("active_repo")
   );
+
+  useEffect(() => {
+    const r = params.get("repo");
+    if (r) {
+      setRepoState(r);
+      localStorage.setItem("active_repo", r);
+    }
+  }, [params]);
 
   const setRepo = (r: string) => {
     setRepoState(r);

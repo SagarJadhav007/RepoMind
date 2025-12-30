@@ -28,8 +28,8 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <RepoProvider>
         <BrowserRouter>
+        <RepoProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
@@ -45,8 +45,8 @@ const App = () => (
             <Route path="/workspace/demo/profile" element={<Profile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </RepoProvider>
         </BrowserRouter>
-        </RepoProvider>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
