@@ -1,22 +1,23 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
-import jwt
+import requests
 import os
 
 security = HTTPBearer()
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
-if not SUPABASE_JWT_SECRET:
-    raise RuntimeError("SUPABASE_JWT_SECRET not set")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 def get_current_user(token=Depends(security)):
-    try:
-        payload = jwt.decode(
-            token.credentials,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated"
-        )
-        return payload  # payload["sub"] = supabase user_id (UUID)
-    except Exception:
+    res = requests.get(
+        f"{SUPABASE_URL}/auth/v1/user",
+        headers={
+            "Authorization": f"Bearer {token.credentials}",
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        },
+    )
+
+    if res.status_code != 200:
         raise HTTPException(status_code=401, detail="Invalid Supabase token")
+
+    return res.json()  # contains id, email, etc.
