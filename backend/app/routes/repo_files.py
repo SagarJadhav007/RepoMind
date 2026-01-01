@@ -31,7 +31,7 @@ def sync_repo_files(
     return ingest_repo_files(
         repo_full_name=repo_full_name,
         installation_id=repo.data["installation_id"],
-        user_id=user.id,
+        user_id=user["id"],
     )
 
 
