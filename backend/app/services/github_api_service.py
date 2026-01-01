@@ -26,7 +26,6 @@ def github_safe_get(url: str, token: str, params: dict | None = None):
             timeout=10,
         )
 
-        # Empty / archived / disabled repos
         if r.status_code in (404, 409, 422):
             return []
 
@@ -120,7 +119,115 @@ def fetch_repositories(installation_token: str):
 
 
 # -------------------------------------------------
-# Ingest Snapshot (SAFE FOR ALL REPOS)
+# Contributor Scoring Logic
+# -------------------------------------------------
+def compute_contributor_type(commits, prs_merged):
+    if commits >= 50 or prs_merged >= 20:
+        return "core"
+    if commits >= 10:
+        return "regular"
+    if commits > 0:
+        return "first-time"
+    return "inactive"
+
+
+def compute_contributor_score(commits, prs, issues):
+    return min(100, commits + prs * 3 + issues * 2)
+
+
+# -------------------------------------------------
+# Contributor Ingestion
+# -------------------------------------------------
+def ingest_repo_contributors(token: str, owner: str, repo: str):
+    supabase = get_db()
+    repo_full_name = f"{owner}/{repo}"
+
+    commits = github_paginated_get(
+        f"{BASE_URL}/repos/{owner}/{repo}/commits",
+        token,
+    )
+
+    prs = github_paginated_get(
+        f"{BASE_URL}/repos/{owner}/{repo}/pulls",
+        token,
+        {"state": "closed"},
+    )
+
+    issues = github_paginated_get(
+        f"{BASE_URL}/repos/{owner}/{repo}/issues",
+        token,
+        {"state": "closed"},
+    )
+
+    contributors = {}
+
+    # ---- COMMITS ----
+    for c in commits:
+        if not c.get("author"):
+            continue
+
+        u = c["author"]
+        uid = u["id"]
+
+        contributors.setdefault(uid, {
+            "github_user_id": uid,
+            "username": u["login"],
+            "name": u.get("login"),
+            "avatar_url": u["avatar_url"],
+            "commits": 0,
+            "prs_merged": 0,
+            "issues_closed": 0,
+            "first_contribution_at": c["commit"]["author"]["date"],
+            "last_activity_at": c["commit"]["author"]["date"],
+        })
+
+        contributors[uid]["commits"] += 1
+        contributors[uid]["last_activity_at"] = c["commit"]["author"]["date"]
+
+    # ---- PRs ----
+    for pr in prs:
+        if not pr.get("user") or not pr.get("merged_at"):
+            continue
+
+        uid = pr["user"]["id"]
+        if uid in contributors:
+            contributors[uid]["prs_merged"] += 1
+            contributors[uid]["last_activity_at"] = pr["merged_at"]
+
+    # ---- ISSUES ----
+    for issue in issues:
+        if "pull_request" in issue or not issue.get("user"):
+            continue
+
+        uid = issue["user"]["id"]
+        if uid in contributors:
+            contributors[uid]["issues_closed"] += 1
+            contributors[uid]["last_activity_at"] = issue["closed_at"]
+
+    rows = []
+    for c in contributors.values():
+        rows.append({
+            "repo_full_name": repo_full_name,
+            **c,
+            "type": compute_contributor_type(c["commits"], c["prs_merged"]),
+            "score": compute_contributor_score(
+                c["commits"],
+                c["prs_merged"],
+                c["issues_closed"],
+            ),
+            "updated_at": datetime.utcnow(),
+        })
+
+    if rows:
+        supabase.table("repo_contributors") \
+            .upsert(rows, on_conflict="repo_full_name,github_user_id") \
+            .execute()
+
+    return {"contributors_ingested": len(rows)}
+
+
+# -------------------------------------------------
+# Repo Dashboard Snapshot (SAFE FOR ALL REPOS)
 # -------------------------------------------------
 def ingest_repo_snapshot(
     token: str,
@@ -136,7 +243,7 @@ def ingest_repo_snapshot(
     closed_prs = get_closed_prs(token, owner, repo_name)
     commits = get_commits_30d(token, owner, repo_name)
 
-    contributors = len({
+    contributors_count = len({
         c["author"]["login"]
         for c in commits if c.get("author")
     })
@@ -147,7 +254,7 @@ def ingest_repo_snapshot(
         open_prs=len(open_prs),
         open_issues=len(issues),
         commits=len(commits),
-        contributors=contributors,
+        contributors=contributors_count,
     )
 
     payload = {
@@ -161,24 +268,29 @@ def ingest_repo_snapshot(
         "open_prs": len(open_prs),
         "open_issues": len(issues),
         "commits_30d": len(commits),
-        "contributors": contributors,
+        "contributors": contributors_count,
         "merge_rate": merge_rate,
         "health_score": health,
         "updated_at": datetime.utcnow(),
     }
 
     supabase = get_db()
-
     supabase.table("repo_dashboard_snapshot") \
         .upsert(payload, on_conflict="repo_full_name") \
         .execute()
+
+    # 🔥 IMPORTANT: ingest contributors AFTER snapshot
+    ingest_repo_contributors(token, owner, repo_name)
 
     return {
         "status": "ok",
         "repo": repo_data["full_name"],
     }
 
-# Manager Console Api
+
+# -------------------------------------------------
+# Manager Console APIs
+# -------------------------------------------------
 def get_manager_open_prs(token: str, owner: str, repo: str):
     prs = get_open_prs(token, owner, repo)
 
