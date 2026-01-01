@@ -75,7 +75,6 @@ def ingest_repo_files(
     token = get_installation_access_token(installation_id)
     supabase = get_db()
 
-    # Default branch
     meta = requests.get(
         f"{BASE_URL}/repos/{owner}/{repo}",
         headers=_headers(token),
@@ -98,15 +97,16 @@ def ingest_repo_files(
         sha = f["sha"]
 
         existing = (
-            supabase.table("repo_files")
+            supabase
+            .table("repo_files")
             .select("sha")
             .eq("repo_full_name", repo_full_name)
             .eq("path", path)
-            .single()
+            .limit(1)
             .execute()
         )
 
-        if existing.data and existing.data["sha"] == sha:
+        if existing.data and existing.data[0]["sha"] == sha:
             skipped += 1
             continue
 
