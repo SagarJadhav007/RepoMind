@@ -7,6 +7,7 @@ from app.routes.manager import router as manager_router
 from app.routes.auth import router as auth_router
 from app.routes.user import router as user_router
 from app.routes.repo_files import router as repo_files_router
+from app.routes.contributor import router as contributor_router
 
 app = FastAPI()
 
@@ -28,3 +29,4 @@ app.include_router(dashboard_router)
 app.include_router(manager_router)
 app.include_router(user_router)
 app.include_router(repo_files_router)
+app.include_router(contributor_router)
