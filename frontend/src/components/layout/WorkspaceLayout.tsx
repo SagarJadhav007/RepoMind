@@ -1,7 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useRepo } from "@/context/RepoContext";
 import { supabase } from "@/lib/supabase";
 
 import {
@@ -34,24 +33,26 @@ type RepoItem = {
   repo_full_name: string;
 };
 
-/* -------------------- NAV -------------------- */
+/* -------------------- NAV FACTORY -------------------- */
 
-const navigation = [
-  { name: "Dashboard", href: "/workspace/demo", icon: LayoutDashboard },
-  { name: "Health", href: "/workspace/demo/health", icon: Heart },
-  { name: "Manage", href: "/workspace/demo/manage", icon: Settings },
-  { name: "Contributors", href: "/workspace/demo/contributors", icon: Users },
-  { name: "Planning", href: "/workspace/demo/planning", icon: KanbanSquare },
-  { name: "AI Assistant", href: "/workspace/demo/assistant", icon: MessageSquare },
-  { name: "Activity", href: "/workspace/demo/activity", icon: History },
-];
+function nav(repo: string) {
+  return [
+    { name: "Dashboard", href: `/workspace/${encodeURIComponent(repo)}`, icon: LayoutDashboard },
+    { name: "Health", href: `/workspace/${encodeURIComponent(repo)}/health`, icon: Heart },
+    { name: "Manage", href: `/workspace/${encodeURIComponent(repo)}/manage`, icon: Settings },
+    { name: "Contributors", href: `/workspace/${encodeURIComponent(repo)}/contributors`, icon: Users },
+    { name: "Planning", href: `/workspace/${encodeURIComponent(repo)}/planning`, icon: KanbanSquare },
+    { name: "AI Assistant", href: `/workspace/${encodeURIComponent(repo)}/assistant`, icon: MessageSquare },
+    { name: "Activity", href: `/workspace/${encodeURIComponent(repo)}/activity`, icon: History },
+  ];
+}
 
 /* -------------------- COMPONENT -------------------- */
 
 export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
+  const { repo } = useParams<{ repo: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { repo, setRepo } = useRepo();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [repos, setRepos] = useState<string[]>([]);
@@ -81,10 +82,11 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
         setRepos(repoNames);
 
-        // Auto-select first repo
+        // If no repo in URL → redirect to first repo
         if (!repo && repoNames.length > 0) {
-          setRepo(repoNames[0]);
-          navigate(`/workspace/demo`);
+          navigate(`/workspace/${encodeURIComponent(repoNames[0])}`, {
+            replace: true,
+          });
         }
       } finally {
         setLoadingRepos(false);
@@ -92,7 +94,11 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     }
 
     loadRepos();
-  }, []);
+  }, [repo, navigate]);
+
+  if (!repo) return null;
+
+  const navigation = nav(repo);
 
   /* -------------------- RENDER -------------------- */
 
@@ -133,10 +139,9 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
-            <Link to="/workspace/demo/profile">
+            <Link to={`/workspace/${repo}/profile`}>
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <User className="h-4 w-4" />
-                <span className="sr-only">Profile</span>
               </Button>
             </Link>
           </div>
@@ -190,17 +195,16 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
             <div className="flex flex-col gap-1">
               {repos.map((r) => {
-                const isActive = repo === r;
+                const active = r === repo;
                 return (
                   <div
                     key={r}
-                    onClick={() => {
-                      setRepo(r);
-                      navigate("/workspace/demo");
-                    }}
+                    onClick={() =>
+                      navigate(`/workspace/${encodeURIComponent(r)}`)
+                    }
                     className={cn(
                       "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors",
-                      isActive
+                      active
                         ? "bg-accent/10 text-accent"
                         : "hover:bg-muted"
                     )}
@@ -209,7 +213,9 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
                     <span className="text-sm truncate">
                       {r.split("/")[1]}
                     </span>
-                    <span className="ml-auto h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                    {active && (
+                      <span className="ml-auto h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                    )}
                   </div>
                 );
               })}

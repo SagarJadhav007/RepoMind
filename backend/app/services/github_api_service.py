@@ -225,6 +225,101 @@ def ingest_repo_contributors(token: str, owner: str, repo: str):
 
     return {"contributors_ingested": len(rows)}
 
+# -------------------------------------------------
+# Activity Ingestion (Dashboard)
+# -------------------------------------------------
+def ingest_repo_activity(token: str, owner: str, repo: str, days: int = 1):
+    """
+    Fetch recent commits, PRs, issues and store raw activity events.
+    """
+    supabase = get_db()
+    repo_full_name = f"{owner}/{repo}"
+    since = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
+
+    rows = []
+
+    # -----------------
+    # COMMITS
+    # -----------------
+    commits = github_paginated_get(
+        f"{BASE_URL}/repos/{owner}/{repo}/commits",
+        token,
+        {"since": since},
+    )
+
+    for c in commits:
+        if not c.get("author"):
+            continue
+
+        rows.append({
+            "repo_full_name": repo_full_name,
+            "github_user_id": c["author"]["id"],
+            "username": c["author"]["login"],
+            "activity_type": "commit",
+            "ref_id": c["sha"],
+            "title": c["commit"]["message"].split("\n")[0],
+            "url": c["html_url"],
+            "created_at": c["commit"]["author"]["date"],
+        })
+
+    # -----------------
+    # PULL REQUESTS
+    # -----------------
+    prs = github_paginated_get(
+        f"{BASE_URL}/repos/{owner}/{repo}/pulls",
+        token,
+        {"state": "closed", "sort": "updated", "direction": "desc"},
+    )
+
+    for pr in prs:
+        if not pr.get("merged_at"):
+            continue
+
+        rows.append({
+            "repo_full_name": repo_full_name,
+            "github_user_id": pr["user"]["id"],
+            "username": pr["user"]["login"],
+            "activity_type": "pr_merged",
+            "ref_id": str(pr["number"]),
+            "title": pr["title"],
+            "url": pr["html_url"],
+            "created_at": pr["merged_at"],
+        })
+
+    # -----------------
+    # ISSUES
+    # -----------------
+    issues = github_paginated_get(
+        f"{BASE_URL}/repos/{owner}/{repo}/issues",
+        token,
+        {"state": "closed", "since": since},
+    )
+
+    for issue in issues:
+        if "pull_request" in issue:
+            continue
+
+        rows.append({
+            "repo_full_name": repo_full_name,
+            "github_user_id": issue["user"]["id"],
+            "username": issue["user"]["login"],
+            "activity_type": "issue_closed",
+            "ref_id": str(issue["number"]),
+            "title": issue["title"],
+            "url": issue["html_url"],
+            "created_at": issue["closed_at"],
+        })
+
+    if rows:
+        supabase.table("repo_activity_log") \
+            .upsert(rows, on_conflict="repo_full_name,activity_type,ref_id") \
+            .execute()
+
+    return {
+        "activities_ingested": len(rows)
+    }
+
+
 
 # -------------------------------------------------
 # Repo Dashboard Snapshot (SAFE FOR ALL REPOS)
@@ -253,7 +348,7 @@ def ingest_repo_snapshot(
     health = health_score(
         open_prs=len(open_prs),
         open_issues=len(issues),
-        commits=len(commits),
+        commits_30d=len(commits),
         contributors=contributors_count,
     )
 
@@ -281,6 +376,8 @@ def ingest_repo_snapshot(
 
     # 🔥 IMPORTANT: ingest contributors AFTER snapshot
     ingest_repo_contributors(token, owner, repo_name)
+    
+    ingest_repo_activity(token, owner, repo_name)
 
     return {
         "status": "ok",

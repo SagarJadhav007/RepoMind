@@ -30,23 +30,23 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-        <RepoProvider>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/fetch-files" element={<RepoFilesPage></RepoFilesPage>} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/select-repo" element={<SelectRepo />} />
-            <Route path="/connect-github" element={<ConnectGithub />} />
-            <Route path="/workspace/demo" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/workspace/demo/health" element={<Health />} />
-            <Route path="/workspace/demo/manage" element={<ProtectedRoute><Manage /></ProtectedRoute>} />
-            <Route path="/workspace/demo/contributors" element={<Contributors />} />
-            <Route path="/workspace/demo/planning" element={<Planning />} />
-            <Route path="/workspace/demo/assistant" element={<Assistant />} />
-            <Route path="/workspace/demo/activity" element={<Activity />} />
-            <Route path="/workspace/demo/profile" element={<Profile />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <RepoProvider>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/fetch-files" element={<RepoFilesPage></RepoFilesPage>} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/select-repo" element={<SelectRepo />} />
+              <Route path="/connect-github" element={<ConnectGithub />} />
+              <Route path="/workspace/:repo" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/workspace/:repo/health" element={<Health />} />
+              <Route path="/workspace/:repo/manage" element={<ProtectedRoute><Manage /></ProtectedRoute>} />
+              <Route path="/workspace/:repo/contributors" element={<ProtectedRoute><Contributors /></ProtectedRoute>} />
+              <Route path="/workspace/:repo/planning" element={<Planning />} />
+              <Route path="/workspace/:repo/assistant" element={<Assistant />} />
+              <Route path="/workspace/:repo/activity" element={<Activity />} />
+              <Route path="/workspace/:repo/profile" element={<Profile />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </RepoProvider>
         </BrowserRouter>
       </TooltipProvider>

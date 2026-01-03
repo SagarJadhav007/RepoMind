@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { RepoHeader } from "@/components/RepoHeader";
 import { HealthScore } from "@/components/HealthScore";
 import { StatCard } from "@/components/StatCard";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { supabase } from "@/lib/supabase";
-import { useRepo } from "@/context/RepoContext";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -22,7 +22,7 @@ import {
 type NotSyncedResponse = {
   status: "not_synced";
   repo: string;
-  message: string;
+  message?: string;
 };
 
 type SyncedDashboardResponse = {
@@ -42,12 +42,20 @@ type SyncedDashboardResponse = {
 
 type DashboardResponse = NotSyncedResponse | SyncedDashboardResponse;
 
+/* -------------------- TYPE GUARD -------------------- */
+
+function isSynced(
+  data: DashboardResponse
+): data is SyncedDashboardResponse {
+  return (data as SyncedDashboardResponse).repo_full_name !== undefined;
+}
+
 /* -------------------- COMPONENT -------------------- */
 
 export default function Dashboard() {
-  const { repo } = useRepo();
+  const { repo } = useParams<{ repo: string }>();
   const [data, setData] = useState<DashboardResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!repo) return;
@@ -57,7 +65,14 @@ export default function Dashboard() {
 
       try {
         const session = (await supabase.auth.getSession()).data.session;
-        if (!session) return;
+        if (!session) {
+          setData({
+            status: "not_synced",
+            repo,
+            message: "User not authenticated",
+          });
+          return;
+        }
 
         const res = await fetch(
           `https://repomind-577n.onrender.com/dashboard/?repo=${encodeURIComponent(
@@ -69,6 +84,15 @@ export default function Dashboard() {
             },
           }
         );
+
+        if (!res.ok) {
+          setData({
+            status: "not_synced",
+            repo,
+            message: "Repository not analyzed yet",
+          });
+          return;
+        }
 
         const json = await res.json();
         setData(json);
@@ -86,7 +110,7 @@ export default function Dashboard() {
     loadDashboard();
   }, [repo]);
 
-  /* -------------------- NO REPO SELECTED -------------------- */
+  /* -------------------- NO REPO -------------------- */
 
   if (!repo) {
     return (
@@ -110,12 +134,14 @@ export default function Dashboard() {
 
   /* -------------------- NOT SYNCED -------------------- */
 
-  if ("status" in data && data.status === "not_synced") {
+  if (!isSynced(data)) {
     return (
       <WorkspaceLayout>
         <div className="p-6 space-y-4">
           <h2 className="text-xl font-semibold">Repository not synced</h2>
-          <p className="text-muted-foreground">{data.message}</p>
+          <p className="text-muted-foreground">
+            {data.message ?? "This repository has not been analyzed yet."}
+          </p>
           <Button onClick={() => window.location.reload()}>
             Sync repository
           </Button>

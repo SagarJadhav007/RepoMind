@@ -317,10 +317,10 @@ export default function Landing() {
             <a href="#pricing" className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Pricing</a>
           </nav>
           <Link 
-            to="/workspace/demo" 
+            to="/auth" 
             className="px-6 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition flex items-center gap-2 shadow-sm"
           >
-            Open Demo
+            Get Started
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -347,7 +347,7 @@ export default function Landing() {
               </p>
               <div className="mt-10 flex items-center gap-4 flex-wrap">
                 <button className="px-8 py-4 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition flex items-center gap-2 shadow-sm">
-                  Open Demo Workspace
+                  Explore Workspace
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <button className="px-8 py-4 border-2 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-semibold hover:border-amber-600 hover:text-amber-600 transition flex items-center gap-2">

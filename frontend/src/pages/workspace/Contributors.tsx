@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { ContributorCard } from "@/components/ContributorCard";
+import { supabase } from "@/lib/supabase";
 import { Users } from "lucide-react";
+
+/* ---------------- TYPES ---------------- */
 
 type Contributor = {
   id: string;
   name: string | null;
   username: string;
-  avatar_url?: string;
   commits: number;
   prs_merged: number;
   issues_closed: number;
@@ -15,41 +18,70 @@ type Contributor = {
   type: "core" | "regular" | "first-time" | "inactive";
 };
 
+/* ---------------- COMPONENT ---------------- */
+
 export default function Contributors() {
-  const repoFullName = "SagarJadhav007/TruthSpotter"; // 🔥 make dynamic later
+  const { repo } = useParams<{ repo: string }>();
 
   const [contributors, setContributors] = useState<Contributor[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // ---------------------------
-  // Fetch Contributors (list only)
-  // ---------------------------
-  const fetchContributors = async (pageNum: number) => {
+  async function fetchContributors(pageNum: number) {
+    if (!repo) return;
+
     setLoading(true);
     try {
-      const res = await fetch(
-        `https://repomind-577n.onrender.com/contributors?page=1&limit=10`
-      );
-      const data = await res.json();
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) return;
 
-      setContributors(data.contributors);
-      setTotal(data.total);
+      const res = await fetch(
+        `https://repomind-577n.onrender.com/contributors?repo=${encodeURIComponent(
+          repo
+        )}&page=${pageNum}&limit=10`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch contributors");
+      }
+
+      const data = await res.json();
+      setContributors(data.contributors ?? []);
+      setTotal(data.total ?? 0);
     } catch (err) {
-      console.error("Failed to fetch contributors", err);
+      console.error(err);
+      setContributors([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  /* ---------------- EFFECT ---------------- */
 
   useEffect(() => {
+    setPage(1);
     fetchContributors(1);
-  }, []);
+  }, [repo]);
 
-  // ---------------------------
-  // Derived counts (from DB data)
-  // ---------------------------
+  /* ---------------- STATES ---------------- */
+
+  if (!repo) {
+    return (
+      <WorkspaceLayout>
+        <div className="p-6 text-muted-foreground">
+          Repository not selected
+        </div>
+      </WorkspaceLayout>
+    );
+  }
+
   const coreCount = contributors.filter(c => c.type === "core").length;
   const firstTimeCount = contributors.filter(c => c.type === "first-time").length;
   const inactiveCount = contributors.filter(c => c.type === "inactive").length;
@@ -57,38 +89,37 @@ export default function Contributors() {
   const hasNext = page * 10 < total;
   const hasPrev = page > 1;
 
+  /* ---------------- UI ---------------- */
+
   return (
     <WorkspaceLayout>
       <div className="space-y-6">
-        {/* Page Header */}
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Contributors</h1>
-          <p className="mt-1 text-muted-foreground">
-            View contribution metrics and recognize your team members.
+          <h1 className="text-2xl font-bold">Contributors</h1>
+          <p className="text-muted-foreground">
+            Contribution metrics for this repository
           </p>
         </div>
 
-        {/* Summary Stats */}
+        {/* Stats */}
         <div className="grid gap-4 sm:grid-cols-4">
-          <StatCard label="Total Contributors" value={total} />
-          <StatCard label="Core Contributors" value={coreCount} variant="warning" />
+          <StatCard label="Total" value={total} />
+          <StatCard label="Core" value={coreCount} variant="warning" />
           <StatCard label="First-time" value={firstTimeCount} variant="success" />
           <StatCard label="Inactive" value={inactiveCount} variant="muted" />
         </div>
 
-        {/* Table Header */}
-        <div className="hidden items-center gap-4 rounded-lg bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground lg:flex">
-          <div className="flex-1">Contributor</div>
-          <div className="w-16 text-center">Commits</div>
-          <div className="w-16 text-center">PRs</div>
-          <div className="w-16 text-center">Issues</div>
-          <div className="w-16 text-right">Score</div>
-        </div>
-
-        {/* Contributors List */}
+        {/* List */}
         <div className="space-y-3 min-h-[300px]">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading contributors...</p>
+            <p className="text-sm text-muted-foreground">
+              Loading contributors…
+            </p>
+          ) : contributors.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No contributors found
+            </p>
           ) : (
             contributors.map((c) => (
               <ContributorCard
@@ -136,9 +167,8 @@ export default function Contributors() {
   );
 }
 
-// ---------------------------
-// Small helper component
-// ---------------------------
+/* ---------------- STAT CARD ---------------- */
+
 function StatCard({
   label,
   value,
@@ -148,14 +178,19 @@ function StatCard({
   value: number;
   variant?: "accent" | "warning" | "success" | "muted";
 }) {
+  const color = {
+    accent: "text-accent",
+    warning: "text-warning",
+    success: "text-green-500",
+    muted: "text-muted-foreground",
+  }[variant];
+
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-card">
+    <div className="rounded-lg border bg-card p-4">
       <div className="flex items-center gap-3">
-        <div className={`rounded-lg bg-${variant}/10 p-2`}>
-          <Users className={`h-4 w-4 text-${variant}`} />
-        </div>
+        <Users className={`h-4 w-4 ${color}`} />
         <div>
-          <p className="text-2xl font-bold text-card-foreground">{value}</p>
+          <p className="text-2xl font-bold">{value}</p>
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
       </div>

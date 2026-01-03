@@ -11,6 +11,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+/* ---------------- TYPES ---------------- */
+
 type PR = {
   id: number;
   title: string;
@@ -27,6 +29,8 @@ type Issue = {
   comments: number;
 };
 
+/* ---------------- COMPONENT ---------------- */
+
 export default function Manage() {
   const { repo } = useRepo();
   const [prs, setPrs] = useState<PR[]>([]);
@@ -36,12 +40,9 @@ export default function Manage() {
   useEffect(() => {
     if (!repo) return;
 
-    const [owner, repoName] = repo.split("/");
-
     async function loadManagerData() {
+      setLoading(true);
       try {
-        setLoading(true);
-
         const session = (await supabase.auth.getSession()).data.session;
         if (!session) return;
 
@@ -49,20 +50,28 @@ export default function Manage() {
           Authorization: `Bearer ${session.access_token}`,
         };
 
-        const prRes = await fetch(
-          `https://repomind-577n.onrender.com/manager/pull-requests`,
-          { headers }
-        );
+        const [prRes, issueRes] = await Promise.all([
+          fetch(
+            `https://repomind-577n.onrender.com/manager/pull-requests?repo=${encodeURIComponent(
+              repo
+            )}`,
+            { headers }
+          ),
+          fetch(
+            `https://repomind-577n.onrender.com/manager/issues?repo=${encodeURIComponent(
+              repo
+            )}`,
+            { headers }
+          ),
+        ]);
 
-        const issueRes = await fetch(
-          `https://repomind-577n.onrender.com/manager/issues`,
-          { headers }
-        );
+        const prJson = await prRes.json();
+        const issueJson = await issueRes.json();
 
-        setPrs((await prRes.json()).pull_requests || []);
-        setIssues((await issueRes.json()).issues || []);
+        setPrs(prJson.pull_requests ?? []);
+        setIssues(issueJson.issues ?? []);
       } catch (err) {
-        console.error(err);
+        console.error("Manager fetch failed", err);
         setPrs([]);
         setIssues([]);
       } finally {
@@ -72,6 +81,8 @@ export default function Manage() {
 
     loadManagerData();
   }, [repo]);
+
+  /* ---------------- STATES ---------------- */
 
   if (!repo) {
     return (
@@ -90,6 +101,8 @@ export default function Manage() {
       </WorkspaceLayout>
     );
   }
+
+  /* ---------------- UI ---------------- */
 
   return (
     <WorkspaceLayout>
@@ -110,6 +123,12 @@ export default function Manage() {
             </div>
 
             <div className="divide-y">
+              {prs.length === 0 && (
+                <p className="p-6 text-sm text-muted-foreground">
+                  No open pull requests
+                </p>
+              )}
+
               {prs.map((pr) => (
                 <div key={pr.id} className="px-6 py-4">
                   <p className="font-medium">
@@ -139,6 +158,12 @@ export default function Manage() {
             </div>
 
             <div className="divide-y">
+              {issues.length === 0 && (
+                <p className="p-6 text-sm text-muted-foreground">
+                  No open issues
+                </p>
+              )}
+
               {issues.map((issue) => (
                 <div key={issue.id} className="px-6 py-4">
                   <p className="font-medium">
