@@ -161,7 +161,6 @@ def ingest_repo_contributors(token: str, owner: str, repo: str):
 
     contributors = {}
 
-    # ---- COMMITS ----
     for c in commits:
         if not c.get("author"):
             continue
@@ -184,7 +183,6 @@ def ingest_repo_contributors(token: str, owner: str, repo: str):
         contributors[uid]["commits"] += 1
         contributors[uid]["last_activity_at"] = c["commit"]["author"]["date"]
 
-    # ---- PRs ----
     for pr in prs:
         if not pr.get("user") or not pr.get("merged_at"):
             continue
@@ -194,7 +192,6 @@ def ingest_repo_contributors(token: str, owner: str, repo: str):
             contributors[uid]["prs_merged"] += 1
             contributors[uid]["last_activity_at"] = pr["merged_at"]
 
-    # ---- ISSUES ----
     for issue in issues:
         if "pull_request" in issue or not issue.get("user"):
             continue
@@ -215,7 +212,7 @@ def ingest_repo_contributors(token: str, owner: str, repo: str):
                 c["prs_merged"],
                 c["issues_closed"],
             ),
-            "updated_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow().isoformat(),
         })
 
     if rows:
@@ -225,22 +222,17 @@ def ingest_repo_contributors(token: str, owner: str, repo: str):
 
     return {"contributors_ingested": len(rows)}
 
+
 # -------------------------------------------------
 # Activity Ingestion (Dashboard)
 # -------------------------------------------------
 def ingest_repo_activity(token: str, owner: str, repo: str, days: int = 1):
-    """
-    Fetch recent commits, PRs, issues and store raw activity events.
-    """
     supabase = get_db()
     repo_full_name = f"{owner}/{repo}"
     since = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
 
     rows = []
 
-    # -----------------
-    # COMMITS
-    # -----------------
     commits = github_paginated_get(
         f"{BASE_URL}/repos/{owner}/{repo}/commits",
         token,
@@ -262,9 +254,6 @@ def ingest_repo_activity(token: str, owner: str, repo: str, days: int = 1):
             "created_at": c["commit"]["author"]["date"],
         })
 
-    # -----------------
-    # PULL REQUESTS
-    # -----------------
     prs = github_paginated_get(
         f"{BASE_URL}/repos/{owner}/{repo}/pulls",
         token,
@@ -286,9 +275,6 @@ def ingest_repo_activity(token: str, owner: str, repo: str, days: int = 1):
             "created_at": pr["merged_at"],
         })
 
-    # -----------------
-    # ISSUES
-    # -----------------
     issues = github_paginated_get(
         f"{BASE_URL}/repos/{owner}/{repo}/issues",
         token,
@@ -315,14 +301,11 @@ def ingest_repo_activity(token: str, owner: str, repo: str, days: int = 1):
             .upsert(rows, on_conflict="repo_full_name,activity_type,ref_id") \
             .execute()
 
-    return {
-        "activities_ingested": len(rows)
-    }
-
+    return {"activities_ingested": len(rows)}
 
 
 # -------------------------------------------------
-# Repo Dashboard Snapshot (SAFE FOR ALL REPOS)
+# Repo Dashboard Snapshot
 # -------------------------------------------------
 def ingest_repo_snapshot(
     token: str,
@@ -366,7 +349,7 @@ def ingest_repo_snapshot(
         "contributors": contributors_count,
         "merge_rate": merge_rate,
         "health_score": health,
-        "updated_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow().isoformat(),
     }
 
     supabase = get_db()
@@ -374,52 +357,39 @@ def ingest_repo_snapshot(
         .upsert(payload, on_conflict="repo_full_name") \
         .execute()
 
-    # 🔥 IMPORTANT: ingest contributors AFTER snapshot
     ingest_repo_contributors(token, owner, repo_name)
-    
     ingest_repo_activity(token, owner, repo_name)
 
-    return {
-        "status": "ok",
-        "repo": repo_data["full_name"],
-    }
+    return {"status": "ok", "repo": repo_data["full_name"]}
 
 
 # -------------------------------------------------
-# Manager Console APIs
+# Manager APIs
 # -------------------------------------------------
 def get_manager_open_prs(token: str, owner: str, repo: str):
     prs = get_open_prs(token, owner, repo)
-
-    return [
-        {
-            "id": pr["number"],
-            "title": pr["title"],
-            "author": pr["user"]["login"],
-            "created_at": pr["created_at"],
-            "updated_at": pr["updated_at"],
-            "draft": pr["draft"],
-            "labels": [l["name"] for l in pr["labels"]],
-            "comments": pr["comments"],
-            "review_comments": pr["review_comments"],
-            "url": pr["html_url"],
-        }
-        for pr in prs
-    ]
+    return [{
+        "id": pr["number"],
+        "title": pr["title"],
+        "author": pr["user"]["login"],
+        "created_at": pr["created_at"],
+        "updated_at": pr["updated_at"],
+        "draft": pr["draft"],
+        "labels": [l["name"] for l in pr["labels"]],
+        "comments": pr["comments"],
+        "review_comments": pr["review_comments"],
+        "url": pr["html_url"],
+    } for pr in prs]
 
 
 def get_manager_open_issues(token: str, owner: str, repo: str):
     issues = get_open_issues(token, owner, repo)
-
-    return [
-        {
-            "id": issue["number"],
-            "title": issue["title"],
-            "author": issue["user"]["login"],
-            "created_at": issue["created_at"],
-            "comments": issue["comments"],
-            "labels": [l["name"] for l in issue["labels"]],
-            "url": issue["html_url"],
-        }
-        for issue in issues
-    ]
+    return [{
+        "id": issue["number"],
+        "title": issue["title"],
+        "author": issue["user"]["login"],
+        "created_at": issue["created_at"],
+        "comments": issue["comments"],
+        "labels": [l["name"] for l in issue["labels"]],
+        "url": issue["html_url"],
+    } for issue in issues]
