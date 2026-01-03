@@ -39,7 +39,7 @@ def get_dashboard_activity(
         supabase
         .table("repo_dashboard_snapshot")
         .select("repo_full_name")
-        .eq("user_id", user.id)
+        .eq("user_id", user["id"])
         .order("updated_at", desc=True)
         .limit(1)
         .execute()

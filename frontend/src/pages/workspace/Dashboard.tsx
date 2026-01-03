@@ -42,6 +42,15 @@ type SyncedDashboardResponse = {
 
 type DashboardResponse = NotSyncedResponse | SyncedDashboardResponse;
 
+type Activity = {
+  username: string;
+  activity_type: "commit" | "pr_merged" | "issue_closed";
+  count: number;
+  latest_title: string | null;
+  latest_url: string | null;
+  latest_at: string;
+};
+
 /* -------------------- TYPE GUARD -------------------- */
 
 function isSynced(
@@ -50,18 +59,39 @@ function isSynced(
   return (data as SyncedDashboardResponse).repo_full_name !== undefined;
 }
 
+/* -------------------- HELPERS -------------------- */
+
+function activityLabel(type: Activity["activity_type"], count: number) {
+  if (type === "commit") return `made ${count} commit${count > 1 ? "s" : ""}`;
+  if (type === "pr_merged") return `merged ${count} PR${count > 1 ? "s" : ""}`;
+  if (type === "issue_closed")
+    return `closed ${count} issue${count > 1 ? "s" : ""}`;
+  return "";
+}
+
+function activityIcon(type: Activity["activity_type"]) {
+  if (type === "commit") return GitCommit;
+  if (type === "pr_merged") return GitMerge;
+  return CircleDot;
+}
+
 /* -------------------- COMPONENT -------------------- */
 
 export default function Dashboard() {
   const { repo } = useParams<{ repo: string }>();
+
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
   useEffect(() => {
     if (!repo) return;
 
     async function loadDashboard() {
       setLoading(true);
+      setActivityLoading(true);
 
       try {
         const session = (await supabase.auth.getSession()).data.session;
@@ -74,6 +104,7 @@ export default function Dashboard() {
           return;
         }
 
+        /* -------- Dashboard Snapshot -------- */
         const res = await fetch(
           `https://repomind-577n.onrender.com/dashboard/?repo=${encodeURIComponent(
             repo
@@ -96,6 +127,21 @@ export default function Dashboard() {
 
         const json = await res.json();
         setData(json);
+
+        /* -------- Recent Activity -------- */
+        const activityRes = await fetch(
+          "https://repomind-577n.onrender.com/dashboard/activity?days=1",
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+
+        if (activityRes.ok) {
+          const activityJson = await activityRes.json();
+          setActivities(activityJson.activities || []);
+        }
       } catch (err) {
         setData({
           status: "not_synced",
@@ -104,6 +150,7 @@ export default function Dashboard() {
         });
       } finally {
         setLoading(false);
+        setActivityLoading(false);
       }
     }
 
@@ -171,7 +218,7 @@ export default function Dashboard() {
         {/* Health + Status */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Health */}
-          <div className="rounded-lg border border-border bg-card p-6 shadow-card">
+          <div className="rounded-lg border bg-card p-6 shadow-card">
             <h2 className="text-sm font-medium text-muted-foreground">
               Repository Health
             </h2>
@@ -184,7 +231,7 @@ export default function Dashboard() {
           </div>
 
           {/* Status */}
-          <div className="lg:col-span-2 rounded-lg border border-border bg-card p-6 shadow-card">
+          <div className="lg:col-span-2 rounded-lg border bg-card p-6 shadow-card">
             <h2 className="text-sm font-medium text-muted-foreground">
               Current Status
             </h2>
@@ -251,6 +298,59 @@ export default function Dashboard() {
             value={0}
             icon={XCircle}
           />
+        </div>
+
+        {/* Recent Activity */}
+        <div className="rounded-lg border bg-card shadow-card">
+          <div className="border-b px-6 py-4">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              Recent Activity (last 24h)
+            </h2>
+          </div>
+
+          <div className="divide-y">
+            {activityLoading ? (
+              <div className="px-6 py-4 text-sm text-muted-foreground">
+                Loading activity…
+              </div>
+            ) : activities.length === 0 ? (
+              <div className="px-6 py-4 text-sm text-muted-foreground">
+                No recent activity
+              </div>
+            ) : (
+              activities.map((a, i) => {
+                const Icon = activityIcon(a.activity_type);
+
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-4 px-6 py-4"
+                  >
+                    <Icon className="h-5 w-5 text-accent shrink-0" />
+
+                    <div className="flex-1">
+                      <p className="text-sm">
+                        <span className="font-medium">
+                          @{a.username}
+                        </span>{" "}
+                        {activityLabel(a.activity_type, a.count)}
+                      </p>
+
+                      {a.latest_title && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {a.latest_title}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(a.latest_at).toLocaleString()}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </WorkspaceLayout>
