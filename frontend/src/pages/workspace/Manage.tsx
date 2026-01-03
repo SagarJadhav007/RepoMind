@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { useRepo } from "@/context/RepoContext";
 
 import {
   GitPullRequest,
@@ -32,7 +32,9 @@ type Issue = {
 /* ---------------- COMPONENT ---------------- */
 
 export default function Manage() {
-  const { repo } = useRepo();
+  const { repo: encodedRepo } = useParams<{ repo: string }>();
+  const repo = encodedRepo ? decodeURIComponent(encodedRepo) : null;
+
   const [prs, setPrs] = useState<PR[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,11 +45,11 @@ export default function Manage() {
     async function loadManagerData() {
       setLoading(true);
       try {
-        const session = (await supabase.auth.getSession()).data.session;
-        if (!session) return;
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) return;
 
         const headers = {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${data.session.access_token}`,
         };
 
         const [prRes, issueRes] = await Promise.all([
@@ -88,7 +90,7 @@ export default function Manage() {
     return (
       <WorkspaceLayout>
         <div className="p-6 text-muted-foreground">
-          Select a repository from the sidebar
+          Invalid repository
         </div>
       </WorkspaceLayout>
     );

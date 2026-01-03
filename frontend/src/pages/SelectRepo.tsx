@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
 
 /* ---------------- TYPES ---------------- */
 
@@ -23,42 +23,38 @@ export default function SelectRepo() {
 
   const installationId = params.get("installation_id");
 
-  /* ---------------- LOAD REPOS ---------------- */
+  /* ---------------- FETCH REPOS ---------------- */
 
   useEffect(() => {
     async function loadRepos() {
       try {
-        if (!installationId) {
-          throw new Error("Missing installation_id");
-        }
-
         const { data } = await supabase.auth.getSession();
         if (!data.session) {
           throw new Error("Not authenticated");
         }
 
-        const res = await fetch(
-          `https://repomind-577n.onrender.com/github/repos?installation_id=${installationId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${data.session.access_token}`,
-            },
-          }
-        );
+        let url = "https://repomind-577n.onrender.com/github/repos";
+
+        // If GitHub redirected back after install
+        if (installationId) {
+          url += `?installation_id=${installationId}`;
+        }
+
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+          },
+        });
 
         if (!res.ok) {
-          throw new Error("Failed to fetch repos");
+          throw new Error("Failed to fetch repositories");
         }
 
         const json = await res.json();
-        if (!Array.isArray(json)) {
-          throw new Error("Invalid repo response");
-        }
-
-        setRepos(json);
+        setRepos(Array.isArray(json) ? json : []);
       } catch (err) {
         console.error(err);
-        alert("Failed to fetch repositories");
+        setRepos([]);
       } finally {
         setLoading(false);
       }
@@ -66,6 +62,21 @@ export default function SelectRepo() {
 
     loadRepos();
   }, [installationId]);
+
+  /* ---------------- ADD / UPDATE INSTALLATION ---------------- */
+
+  const addRepo = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      alert("Not authenticated");
+      return;
+    }
+
+    const userId = data.session.user.id;
+
+    window.location.href =
+      `https://github.com/apps/RepoMind-App/installations/new?state=${userId}`;
+  };
 
   /* ---------------- SELECT REPO ---------------- */
 
@@ -86,23 +97,22 @@ export default function SelectRepo() {
             Authorization: `Bearer ${data.session.access_token}`,
           },
           body: JSON.stringify({
-            installation_id: Number(installationId),
+            installation_id: installationId
+              ? Number(installationId)
+              : undefined,
             repo: repoFullName,
           }),
         }
       );
 
       if (!res.ok) {
-        const err = await res.text();
-        console.error(err);
-        alert("Failed to sync repository");
-        return;
+        throw new Error("Sync failed");
       }
 
       navigate(`/workspace/${encodeURIComponent(repoFullName)}`);
     } catch (err) {
       console.error(err);
-      alert("Something went wrong while syncing");
+      alert("Failed to sync repository");
     }
   };
 
@@ -114,12 +124,18 @@ export default function SelectRepo() {
 
   return (
     <div className="min-h-screen flex justify-center p-6">
-      <div className="w-full max-w-2xl space-y-4">
-        <h1 className="text-2xl font-bold">Select Repository</h1>
+      <div className="w-full max-w-2xl space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">GitHub Repositories</h1>
+
+          <Button variant="outline" onClick={addRepo}>
+            Add / Manage Repos
+          </Button>
+        </div>
 
         {repos.length === 0 && (
           <p className="text-muted-foreground text-sm">
-            No repositories found for this installation
+            No repositories connected yet
           </p>
         )}
 

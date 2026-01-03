@@ -7,29 +7,29 @@ export default function ProtectedRoute({
 }: {
   children: JSX.Element;
 }) {
-  const [loading, setLoading] = useState(true);
-  const [redirectTo, setRedirectTo] = useState<string | null>(null);
-
   const location = useLocation();
+  const [status, setStatus] = useState<
+    "loading" | "unauth" | "ok" | "redirect"
+  >("loading");
+  const [target, setTarget] = useState<string>("");
 
   useEffect(() => {
-    async function run() {
+    async function check() {
       const { data } = await supabase.auth.getSession();
 
-      // ❌ Not authenticated → auth
+      // ❌ Not authenticated
       if (!data.session) {
-        setRedirectTo("/auth");
-        setLoading(false);
+        setStatus("unauth");
         return;
       }
 
-      // ✅ Already in workspace with repo → allow
+      // ✅ Already inside workspace repo
       if (location.pathname.startsWith("/workspace/")) {
-        setLoading(false);
+        setStatus("ok");
         return;
       }
 
-      // ✅ Authenticated → try to get recent repo
+      // ✅ Need recent repo
       const res = await fetch(
         "https://repomind-577n.onrender.com/user/recent-repo",
         {
@@ -42,17 +42,25 @@ export default function ProtectedRoute({
       const json = await res.json();
 
       if (json.repo) {
-        setRedirectTo(`/workspace/${encodeURIComponent(json.repo)}`);
+        setTarget(`/workspace/${encodeURIComponent(json.repo)}`);
+        setStatus("redirect");
+      } else {
+        setStatus("ok");
       }
-
-      setLoading(false);
     }
 
-    run();
+    check();
   }, [location.pathname]);
 
-  if (loading) return null;
-  if (redirectTo) return <Navigate to={redirectTo} replace />;
+  if (status === "loading") return null;
+
+  if (status === "unauth") {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (status === "redirect") {
+    return <Navigate to={target} replace />;
+  }
 
   return children;
 }

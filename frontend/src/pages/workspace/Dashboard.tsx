@@ -82,78 +82,85 @@ export default function Dashboard() {
 
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
 
-  useEffect(() => {
+  /* -------------------- LOAD DASHBOARD -------------------- */
+
+  const loadDashboard = async (isRefresh = false) => {
     if (!repo) return;
 
-    async function loadDashboard() {
-      setLoading(true);
-      setActivityLoading(true);
+    isRefresh ? setRefreshing(true) : setLoading(true);
+    setActivityLoading(true);
 
-      try {
-        const session = (await supabase.auth.getSession()).data.session;
-        if (!session) {
-          setData({
-            status: "not_synced",
-            repo,
-            message: "User not authenticated",
-          });
-          return;
-        }
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
 
-        /* -------- Dashboard Snapshot -------- */
-        const res = await fetch(
-          `https://repomind-577n.onrender.com/dashboard/?repo=${encodeURIComponent(
-            repo
-          )}`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-          }
-        );
-
-        if (!res.ok) {
-          setData({
-            status: "not_synced",
-            repo,
-            message: "Repository not analyzed yet",
-          });
-          return;
-        }
-
-        const json = await res.json();
-        setData(json);
-
-        /* -------- Recent Activity -------- */
-        const activityRes = await fetch(
-          "https://repomind-577n.onrender.com/dashboard/activity?days=1",
-          {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-          }
-        );
-
-        if (activityRes.ok) {
-          const activityJson = await activityRes.json();
-          setActivities(activityJson.activities || []);
-        }
-      } catch (err) {
+      if (!session) {
         setData({
           status: "not_synced",
           repo,
-          message: String(err),
+          message: "User not authenticated",
         });
-      } finally {
-        setLoading(false);
-        setActivityLoading(false);
+        return;
       }
-    }
 
+      /* -------- Dashboard Snapshot -------- */
+      const res = await fetch(
+        `https://repomind-577n.onrender.com/dashboard/?repo=${encodeURIComponent(
+          repo
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        setData({
+          status: "not_synced",
+          repo,
+          message: "Repository not analyzed yet",
+        });
+        return;
+      }
+
+      const json = await res.json();
+      setData(json);
+
+      /* -------- Recent Activity -------- */
+      const activityRes = await fetch(
+        "https://repomind-577n.onrender.com/dashboard/activity?days=1",
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (activityRes.ok) {
+        const activityJson = await activityRes.json();
+        setActivities(activityJson.activities || []);
+      }
+    } catch (err) {
+      setData({
+        status: "not_synced",
+        repo,
+        message: String(err),
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setActivityLoading(false);
+    }
+  };
+
+  /* -------------------- INITIAL LOAD -------------------- */
+
+  useEffect(() => {
     loadDashboard();
   }, [repo]);
 
@@ -189,8 +196,8 @@ export default function Dashboard() {
           <p className="text-muted-foreground">
             {data.message ?? "This repository has not been analyzed yet."}
           </p>
-          <Button onClick={() => window.location.reload()}>
-            Sync repository
+          <Button onClick={() => loadDashboard(true)}>
+            {refreshing ? "Syncing…" : "Sync repository"}
           </Button>
         </div>
       </WorkspaceLayout>
@@ -206,6 +213,18 @@ export default function Dashboard() {
   return (
     <WorkspaceLayout>
       <div className="space-y-6">
+        {/* Refresh Button */}
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadDashboard(true)}
+            disabled={refreshing}
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </Button>
+        </div>
+
         {/* Repo Header */}
         <RepoHeader
           name={data.repo_full_name}
@@ -217,7 +236,6 @@ export default function Dashboard() {
 
         {/* Health + Status */}
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Health */}
           <div className="rounded-lg border bg-card p-6 shadow-card">
             <h2 className="text-sm font-medium text-muted-foreground">
               Repository Health
@@ -230,7 +248,6 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Status */}
           <div className="lg:col-span-2 rounded-lg border bg-card p-6 shadow-card">
             <h2 className="text-sm font-medium text-muted-foreground">
               Current Status
@@ -327,7 +344,6 @@ export default function Dashboard() {
                     className="flex items-center gap-4 px-6 py-4"
                   >
                     <Icon className="h-5 w-5 text-accent shrink-0" />
-
                     <div className="flex-1">
                       <p className="text-sm">
                         <span className="font-medium">
@@ -335,14 +351,12 @@ export default function Dashboard() {
                         </span>{" "}
                         {activityLabel(a.activity_type, a.count)}
                       </p>
-
                       {a.latest_title && (
                         <p className="text-xs text-muted-foreground truncate">
                           {a.latest_title}
                         </p>
                       )}
                     </div>
-
                     <div className="text-xs text-muted-foreground">
                       {new Date(a.latest_at).toLocaleString()}
                     </div>

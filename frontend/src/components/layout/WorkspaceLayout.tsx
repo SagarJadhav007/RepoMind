@@ -18,10 +18,12 @@ import {
   FolderGit2,
   GitBranch,
   User,
+  Plus
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { getLatestInstallationId } from "@/lib/utils";
 
 /* -------------------- TYPES -------------------- */
 
@@ -199,9 +201,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
                 return (
                   <div
                     key={r}
-                    onClick={() =>
-                      navigate(`/workspace/${encodeURIComponent(r)}`)
-                    }
+                    onClick={() => navigate(`/workspace/${encodeURIComponent(r)}`)}
                     className={cn(
                       "flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors",
                       active
@@ -220,6 +220,30 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
                 );
               })}
             </div>
+
+            {/* ✅ ADD REPO BUTTON */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={async () => {
+                const installationId = await getLatestInstallationId();
+
+                if (installationId) {
+                  navigate(`/select-repo?installation_id=${installationId}`);
+                  return;
+                }
+
+                const session = (await supabase.auth.getSession()).data.session;
+                if (!session) return;
+
+                window.location.href =
+                  `https://github.com/apps/RepoMind-App/installations/new?state=${session.user.id}`;
+              }}
+            >
+              <Plus/>
+              Add Repository
+            </Button>
           </div>
         </aside>
 
