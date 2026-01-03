@@ -6,33 +6,22 @@ from app.services.github_api_service import ingest_repo_snapshot
 
 router = APIRouter(prefix="/user", tags=["User"])
 
-
-@router.post("/select-repo")
-def select_repo(payload: dict, user=Depends(get_current_user)):
-    installation_id = payload["installation_id"]
-    repo_full_name = payload["repo_full_name"]
-
+@router.get("/recent-repo")
+def get_recent_repo(user=Depends(get_current_user)):
     supabase = get_db()
 
-    supabase.table("user_repos") \
-        .update({"active": False}) \
-        .eq("user_id", user["sub"]) \
+    res = (
+        supabase
+        .table("recent_repo")
+        .select("repo")
+        .eq("user_id", user["id"])
+        .order("updated_at", desc=True)
+        .limit(1)
         .execute()
+    )
 
-    
-    supabase.table("user_repos").upsert(
-        {
-            "user_id": user["sub"],
-            "installation_id": installation_id,
-            "repo_full_name": repo_full_name,
-            "active": True,
-        },
-        on_conflict="user_id,repo_full_name"
-    ).execute()
+    if res.data and len(res.data) > 0:
+        return {"repo": res.data[0]["repo"]}
 
-    
-    owner, repo = repo_full_name.split("/")
-    token = get_installation_access_token(installation_id)
-    ingest_repo_snapshot(token, installation_id, owner, repo)
+    return {"repo": None}
 
-    return {"status": "ok"}

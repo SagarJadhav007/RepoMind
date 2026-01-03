@@ -9,6 +9,16 @@ router = APIRouter(prefix="/dashboard")
 def dashboard(repo: str, user=Depends(get_current_user)):
     supabase = get_db()
 
+    # ✅ mark this repo as recently used
+    supabase.table("recent_repo").upsert(
+        {
+            "user_id": user["id"],
+            "repo": repo,
+            "updated_at": datetime.utcnow().isoformat(),
+        },
+        on_conflict="user_id"
+    ).execute()
+
     res = (
         supabase
         .table("repo_dashboard_snapshot")
@@ -25,7 +35,7 @@ def dashboard(repo: str, user=Depends(get_current_user)):
             "repo": repo
         }
 
-    return res.data[0]   
+    return res.data[0]
 
 @router.get("/activity")
 def get_dashboard_activity(

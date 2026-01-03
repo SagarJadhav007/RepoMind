@@ -317,7 +317,7 @@ export default function Landing() {
             <a href="#pricing" className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Pricing</a>
           </nav>
           <Link 
-            to="/auth" 
+            to="/workspace" 
             className="px-6 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition flex items-center gap-2 shadow-sm"
           >
             Get Started
