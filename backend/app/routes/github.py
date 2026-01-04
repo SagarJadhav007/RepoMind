@@ -44,27 +44,21 @@ def github_callback(
     return RedirectResponse(
         url=f"http://localhost:8080/select-repo?installation_id={installation_id}"
     )
+    
 
-
-# -------------------------------------------------
-# GitHub webhook (future)
-# -------------------------------------------------
 @router.post("/webhook")
 async def github_webhook(
     request: Request,
     x_github_event: str = Header(None),
 ):
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+    print("🔥 WEBHOOK HANDLER HIT")
+    print("EVENT:", x_github_event)
 
-    logging.info(f"GitHub webhook received: {x_github_event}")
+    payload = await request.json()
+    print("PAYLOAD KEYS:", payload.keys())
 
-    return {
-        "ok": True,
-        "event": x_github_event,
-    }
+    return {"ok": True}
+
 
 
 # -------------------------------------------------
