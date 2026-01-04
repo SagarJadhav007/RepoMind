@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 import logging
 
-from app.services.github_auth import get_installation_access_token
+from app.services.github_auth import get_installation_access_token , verify_github_signature
 from app.services.github_api_service import (
     fetch_repositories,
     ingest_repo_snapshot,
@@ -50,12 +50,12 @@ def github_callback(
 async def github_webhook(
     request: Request,
     x_github_event: str = Header(None),
+    x_hub_signature_256: str = Header(None),
 ):
-    print("🔥 WEBHOOK HANDLER HIT")
-    print("EVENT:", x_github_event)
+    body = await request.body()
+    verify_github_signature(x_hub_signature_256, body)
 
     payload = await request.json()
-    print("PAYLOAD KEYS:", payload.keys())
 
     return {"ok": True}
 

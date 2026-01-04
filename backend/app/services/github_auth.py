@@ -3,10 +3,19 @@ import time
 import os
 import requests
 import base64
+import hmac
+import hashlib
+from fastapi import HTTPException
 
 GITHUB_API = "https://api.github.com"
 GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
 GITHUB_PRIVATE_KEY_B64 = os.getenv("GITHUB_PRIVATE_KEY_B64")
+WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET")
+
+if not WEBHOOK_SECRET:
+    raise RuntimeError("GITHUB_WEBHOOK_SECRET not set")
+
+WEBHOOK_SECRET = WEBHOOK_SECRET.encode()
 
 def generate_github_app_jwt():
     now = int(time.time())
@@ -42,3 +51,23 @@ def get_installation_access_token(installation_id: int) -> str:
     response.raise_for_status()
 
     return response.json()["token"]
+
+def verify_github_signature(signature_header: str, body: bytes):
+    if not signature_header:
+        raise HTTPException(401, "Missing signature")
+
+    try:
+        sha_name, signature = signature_header.split("=", 1)
+    except ValueError:
+        raise HTTPException(401, "Malformed signature")
+
+    if sha_name != "sha256":
+        raise HTTPException(401, "Invalid signature type")
+
+    mac = hmac.new(WEBHOOK_SECRET, body, hashlib.sha256)
+    print("EXPECTED:", mac.hexdigest())
+    print("RECEIVED:", signature)
+
+
+    if not hmac.compare_digest(mac.hexdigest(), signature):
+        raise HTTPException(401, "Invalid signature")
