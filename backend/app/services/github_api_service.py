@@ -368,28 +368,37 @@ def ingest_repo_snapshot(
 # -------------------------------------------------
 def get_manager_open_prs(token: str, owner: str, repo: str):
     prs = get_open_prs(token, owner, repo)
+
     return [{
         "id": pr["number"],
         "title": pr["title"],
         "author": pr["user"]["login"],
         "created_at": pr["created_at"],
         "updated_at": pr["updated_at"],
-        "draft": pr["draft"],
-        "labels": [l["name"] for l in pr["labels"]],
-        "comments": pr["comments"],
-        "review_comments": pr["review_comments"],
+        "draft": pr.get("draft", False),
+        "labels": [l["name"] for l in pr.get("labels", [])],
+
+        # SAFE ACCESS
+        "comments": pr.get("comments", 0),
+        "review_comments": pr.get("review_comments", 0),
+
         "url": pr["html_url"],
     } for pr in prs]
 
 
 def get_manager_open_issues(token: str, owner: str, repo: str):
     issues = get_open_issues(token, owner, repo)
+
     return [{
         "id": issue["number"],
         "title": issue["title"],
         "author": issue["user"]["login"],
         "created_at": issue["created_at"],
-        "comments": issue["comments"],
-        "labels": [l["name"] for l in issue["labels"]],
+
+        # SAFE ACCESS
+        "comments": issue.get("comments", 0),
+
+        "labels": [l["name"] for l in issue.get("labels", [])],
         "url": issue["html_url"],
     } for issue in issues]
+
