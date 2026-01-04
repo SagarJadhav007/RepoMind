@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Request, Depends, Query, HTTPException
+from fastapi import APIRouter, Request, Depends, Query, HTTPException, Header
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+import logging
 
 from app.services.github_auth import get_installation_access_token
 from app.services.github_api_service import (
@@ -49,10 +50,21 @@ def github_callback(
 # GitHub webhook (future)
 # -------------------------------------------------
 @router.post("/webhook")
-async def github_webhook(request: Request):
-    payload = await request.json()
-    print("Webhook received:", payload.get("action"))
-    return {"status": "received"}
+async def github_webhook(
+    request: Request,
+    x_github_event: str = Header(None),
+):
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    logging.info(f"GitHub webhook received: {x_github_event}")
+
+    return {
+        "ok": True,
+        "event": x_github_event,
+    }
 
 
 # -------------------------------------------------
