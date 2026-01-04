@@ -13,6 +13,7 @@ from app.services.github_api_service import (
 from app.services.github_webhook_handlers import (
     handle_installation_event,
     handle_installation_repositories_event,
+    handle_push_event,
 )
 from app.auth.supabase import get_current_user
 from app.db import get_db
