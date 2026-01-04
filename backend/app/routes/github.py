@@ -80,7 +80,7 @@ async def github_webhook(
     elif event == "installation_repositories":
         handle_installation_repositories_event(payload)
         
-    elif x_github_event == "push":                
+    elif event == "push":                
         handle_push_event(payload)
 
     # other events intentionally ignored for MVP
