@@ -10,6 +10,7 @@ from app.services.github_api_service import (
 )
 from app.auth.supabase import get_current_user
 from app.db import get_db
+from app.services.github_webhook_handlers import 
 
 router = APIRouter(prefix="/github")
 
@@ -54,12 +55,19 @@ async def github_webhook(
 ):
     body = await request.body()
     verify_github_signature(x_hub_signature_256, body)
-
     payload = await request.json()
 
+    print("🔥 EVENT:", x_github_event)
+    print("🔥 ACTION:", payload.get("action"))
+    print("🔥 INSTALLATION ID:", payload.get("installation", {}).get("id"))
+
+    if x_github_event == "installation":
+        handle_installation_event(payload)
+
+    if x_github_event == "installation_repositories":
+        handle_installation_repositories_event(payload)
+
     return {"ok": True}
-
-
 
 # -------------------------------------------------
 # Sync repository (NEW OR OLD)

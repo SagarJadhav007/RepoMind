@@ -65,9 +65,6 @@ def verify_github_signature(signature_header: str, body: bytes):
         raise HTTPException(401, "Invalid signature type")
 
     mac = hmac.new(WEBHOOK_SECRET, body, hashlib.sha256)
-    print("EXPECTED:", mac.hexdigest())
-    print("RECEIVED:", signature)
-
 
     if not hmac.compare_digest(mac.hexdigest(), signature):
         raise HTTPException(401, "Invalid signature")
