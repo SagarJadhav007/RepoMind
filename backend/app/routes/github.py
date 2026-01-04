@@ -1,16 +1,21 @@
 from fastapi import APIRouter, Request, Depends, Query, HTTPException, Header
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-import logging
 
-from app.services.github_auth import get_installation_access_token , verify_github_signature
+from app.services.github_auth import (
+    get_installation_access_token,
+    verify_github_signature,
+)
 from app.services.github_api_service import (
     fetch_repositories,
     ingest_repo_snapshot,
 )
+from app.services.github_webhook_handlers import (
+    handle_installation_event,
+    handle_installation_repositories_event,
+)
 from app.auth.supabase import get_current_user
 from app.db import get_db
-from app.services.github_webhook_handlers import handle_installation_event, handle_installation_repositories_event
 
 router = APIRouter(prefix="/github")
 
@@ -21,7 +26,7 @@ class SyncRequest(BaseModel):
 
 
 # -------------------------------------------------
-# GitHub App callback
+# GitHub App OAuth callback
 # -------------------------------------------------
 @router.get("/callback")
 def github_callback(
@@ -45,8 +50,11 @@ def github_callback(
     return RedirectResponse(
         url=f"http://localhost:8080/select-repo?installation_id={installation_id}"
     )
-    
 
+
+# -------------------------------------------------
+# GitHub Webhook
+# -------------------------------------------------
 @router.post("/webhook")
 async def github_webhook(
     request: Request,
@@ -57,20 +65,29 @@ async def github_webhook(
     verify_github_signature(x_hub_signature_256, body)
     payload = await request.json()
 
-    print("🔥 EVENT:", x_github_event)
-    print("🔥 ACTION:", payload.get("action"))
-    print("🔥 INSTALLATION ID:", payload.get("installation", {}).get("id"))
+    event = x_github_event
+    action = payload.get("action")
+    installation_id = payload.get("installation", {}).get("id")
 
-    if x_github_event == "installation":
+    print("🔥 EVENT:", event)
+    print("🔥 ACTION:", action)
+    print("🔥 INSTALLATION ID:", installation_id)
+
+    if event == "installation":
         handle_installation_event(payload)
 
-    if x_github_event == "installation_repositories":
+    elif event == "installation_repositories":
         handle_installation_repositories_event(payload)
+        
+    elif x_github_event == "push":                
+        handle_push_event(payload)
 
+    # other events intentionally ignored for MVP
     return {"ok": True}
 
+
 # -------------------------------------------------
-# Sync repository (NEW OR OLD)
+# Manual sync (user selects repo)
 # -------------------------------------------------
 @router.post("/sync")
 def sync_dashboard(
@@ -79,7 +96,6 @@ def sync_dashboard(
 ):
     supabase = get_db()
 
-    # 🔐 verify installation belongs to user
     inst = (
         supabase.table("github_installations")
         .select("installation_id")
@@ -161,7 +177,7 @@ def list_user_installations(user=Depends(get_current_user)):
 
 
 # -------------------------------------------------
-# List synced repos (dashboard sidebar)
+# Sidebar repos
 # -------------------------------------------------
 @router.get("/repos/available")
 def list_user_repos(user=Depends(get_current_user)):
@@ -171,6 +187,7 @@ def list_user_repos(user=Depends(get_current_user)):
         supabase.table("repo_dashboard_snapshot")
         .select("repo_full_name")
         .eq("user_id", user["id"])
+        .eq("active", True)
         .execute()
     )
 
