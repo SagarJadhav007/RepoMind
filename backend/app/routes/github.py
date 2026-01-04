@@ -14,7 +14,10 @@ from app.services.github_webhook_handlers import (
     handle_installation_event,
     handle_installation_repositories_event,
     handle_push_event,
+    handle_pull_request_event,
+    handle_issues_event,
 )
+
 from app.auth.supabase import get_current_user
 from app.db import get_db
 
@@ -80,8 +83,14 @@ async def github_webhook(
     elif event == "installation_repositories":
         handle_installation_repositories_event(payload)
         
-    elif event == "push":                
+    elif event == "push":
         handle_push_event(payload)
+
+    elif event == "pull_request":
+        handle_pull_request_event(payload)
+
+    elif event == "issues":
+        handle_issues_event(payload)
 
     # other events intentionally ignored for MVP
     return {"ok": True}
@@ -133,6 +142,7 @@ def list_installation_repos(
     installation_id: int = Query(...),
     user=Depends(get_current_user),
 ):
+    
     supabase = get_db()
 
     inst = (

@@ -2,6 +2,8 @@ from datetime import datetime
 from app.db import get_db
 from app.tasks.ingest_repo import ingest_repo_task
 from app.tasks.ingest_push import ingest_push_task
+from app.tasks.ingest_pull_request import ingest_pull_request_task
+from app.tasks.ingest_issue import ingest_issue_task
 
 # -------------------------------------------------
 # Installation lifecycle
@@ -71,5 +73,27 @@ def handle_push_event(payload: dict):
         installation_id=installation_id,
         owner=owner,
         repo_name=repo_name,
+        payload=payload,
+    )
+
+def handle_pull_request_event(payload: dict):
+    installation_id = payload["installation"]["id"]
+    repo = payload["repository"]
+
+    ingest_pull_request_task.delay(
+        installation_id=installation_id,
+        owner=repo["owner"]["login"],
+        repo_name=repo["name"],
+        payload=payload,
+    )
+
+def handle_issues_event(payload: dict):
+    installation_id = payload["installation"]["id"]
+    repo = payload["repository"]
+
+    ingest_issue_task.delay(
+        installation_id=installation_id,
+        owner=repo["owner"]["login"],
+        repo_name=repo["name"],
         payload=payload,
     )
