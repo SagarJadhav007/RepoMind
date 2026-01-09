@@ -14,7 +14,7 @@ class GeminiLLM:
 
     def generate(self, prompt: str) -> str:
         response = client.models.generate_content(
-            model="gemini-2.5-pro",
+            model="gemini-1.5-flash",
             contents=prompt,
         )
         return response.text
