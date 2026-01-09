@@ -1,4 +1,4 @@
-from .tasks import TaskType
+from .task import TaskType
 from .context.pr_review import build_pr_review_context
 from .context.issue import build_issue_context
 from .context.chat import build_chat_context
