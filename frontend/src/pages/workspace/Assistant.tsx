@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { ChatBubble } from "@/components/ChatBubble";
-import { chatMessages } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Bot, Send, Sparkles } from "lucide-react";
+import { sendChatMessage } from "@/lib/chat";
+import { nanoid } from "nanoid";
+
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
 
 const suggestedQuestions = [
   "What are good first issues for new contributors?",
@@ -15,6 +22,48 @@ const suggestedQuestions = [
 
 export default function Assistant() {
   const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // TODO: replace with real selected repo from route / context
+  const repoFullName = "SagarJadhav007/";
+
+  async function handleSend(message: string) {
+    if (!message.trim()) return;
+
+    const userMessage: Message = {
+      id: nanoid(),
+      role: "user",
+      content: message,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue("");
+    setLoading(true);
+
+    try {
+      const res = await sendChatMessage(repoFullName, message);
+
+      const assistantMessage: Message = {
+        id: nanoid(),
+        role: "assistant",
+        content: res.answer || "I couldn’t find an answer in this repository.",
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nanoid(),
+          role: "assistant",
+          content: "Something went wrong. Please try again.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <WorkspaceLayout>
@@ -26,7 +75,7 @@ export default function Assistant() {
               <Bot className="h-5 w-5 text-accent-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">RepoMind Assistant</h1>
+              <h1 className="text-2xl font-bold">RepoMind Assistant</h1>
               <p className="text-muted-foreground">
                 AI-powered help for understanding and navigating the repository.
               </p>
@@ -35,53 +84,72 @@ export default function Assistant() {
         </div>
 
         {/* Chat Container */}
-        <div className="flex flex-1 flex-col rounded-lg border border-border bg-card shadow-card overflow-hidden">
+        <div className="flex flex-1 flex-col rounded-lg border bg-card shadow-card overflow-hidden">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {chatMessages.map((message) => (
+            {messages.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center">
+                Ask anything about this repository 👇
+              </p>
+            )}
+
+            {messages.map((message) => (
               <ChatBubble
                 key={message.id}
                 role={message.role}
                 content={message.content}
               />
             ))}
+
+            {loading && (
+              <ChatBubble
+                role="assistant"
+                content="Thinking…"
+              />
+            )}
           </div>
 
           {/* Suggested Questions */}
-          <div className="border-t border-border bg-muted/30 px-6 py-4">
+          <div className="border-t bg-muted/30 px-6 py-4">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="h-4 w-4 text-accent" />
-              <span className="text-xs font-medium text-muted-foreground">Suggested questions</span>
+              <span className="text-xs font-medium text-muted-foreground">
+                Suggested questions
+              </span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {suggestedQuestions.map((question, index) => (
+              {suggestedQuestions.map((q, i) => (
                 <button
-                  key={index}
-                  onClick={() => setInputValue(question)}
-                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  key={i}
+                  onClick={() => handleSend(q)}
+                  className="rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
                 >
-                  {question}
+                  {q}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Input */}
-          <div className="border-t border-border p-4">
+          <div className="border-t p-4">
             <div className="flex gap-2">
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Ask about the repository..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSend(inputValue);
+                }}
                 className="flex-1"
               />
-              <Button size="icon" disabled={!inputValue.trim()}>
+              <Button
+                size="icon"
+                disabled={!inputValue.trim() || loading}
+                onClick={() => handleSend(inputValue)}
+              >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              This is a demo UI. No actual AI functionality is implemented.
-            </p>
           </div>
         </div>
       </div>
