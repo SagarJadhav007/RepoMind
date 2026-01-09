@@ -4,9 +4,8 @@ from app.brain.llm.gemini import GeminiLLM
 
 llm = GeminiLLM()
 
-
-def run_brain(req):
-    payload = route_task(req)
+async def run_brain(req):            
+    payload = await route_task(req)  
 
     prompt = f"""
 {payload['instruction']}
@@ -19,7 +18,7 @@ Return valid JSON only in this format:
 }}
 """
 
-    raw = llm.generate(prompt)
+    raw = llm.generate(prompt)       
 
     try:
         return json.loads(raw)

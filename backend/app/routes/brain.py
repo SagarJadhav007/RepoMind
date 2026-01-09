@@ -4,14 +4,13 @@ from app.brain.schema import BrainRequest, ChatRequest
 from app.brain.roles import Role
 from app.brain.task import TaskType
 from app.auth.supabase import get_current_user
-from app.db import get_db
 
 router = APIRouter(tags=["Chat"])
 
 @router.post("/chat")
-def chat(
+async def chat(                      
     repo_full_name: str,
-    body: ChatRequest,             
+    body: ChatRequest,
     user=Depends(get_current_user),
 ):
     req = BrainRequest(
@@ -22,4 +21,4 @@ def chat(
         payload={"message": body.message},
     )
 
-    return run_brain(req)
+    return await run_brain(req)      
