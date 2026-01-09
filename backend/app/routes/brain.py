@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from app.brain.engine import run_brain
-from app.brain.schemas import BrainRequest
+from app.brain.schema import BrainRequest
 from app.brain.roles import Role
 from app.brain.task import TaskType
-from app.auth import get_current_user
+from app.auth.supabase import get_current_user
 from app.db import get_db
 
 router = APIRouter(prefix="/chat", tags=["Chat"])

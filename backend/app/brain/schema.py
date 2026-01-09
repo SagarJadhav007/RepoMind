@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from .roles import Role
-from .tasks import TaskType
+from .task import TaskType
 
 class BrainRequest(BaseModel):
     user_id: str

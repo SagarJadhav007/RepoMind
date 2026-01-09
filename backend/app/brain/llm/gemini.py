@@ -1,19 +1,20 @@
 import os
-import google.generativeai as genai
+from google import genai
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 class GeminiLLM:
     def embed(self, text: str) -> list[float]:
-        res = genai.embed_content(
-            model="models/embedding-001",
-            content=text,
-            task_type="retrieval_document",
+        result = client.models.embed_content(
+            model="text-embedding-004",
+            contents=text,
         )
-        return res["embedding"]
+        return result.embeddings[0].values
 
     def generate(self, prompt: str) -> str:
-        model = genai.GenerativeModel("gemini-1.5-pro")
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-1.5-pro",
+            contents=prompt,
+        )
         return response.text
