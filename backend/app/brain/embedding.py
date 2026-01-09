@@ -4,8 +4,9 @@ import os
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def embed_text(text: str) -> list[float]:
-    response = client.embeddings.create(
+    response = client.models.embed_content(
         model="text-embedding-004",
-        input=text,
+        contents=text,
     )
-    return response.data[0].embedding
+
+    return response.embeddings[0].values
