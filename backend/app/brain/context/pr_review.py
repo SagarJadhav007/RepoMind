@@ -1,4 +1,4 @@
-from .base import retrieve_repo_embeddings, assemble_context
+from .base import retrieve_repo_embeddings
 
 async def build_pr_review_context(req):
     diff = req.payload["diff"]

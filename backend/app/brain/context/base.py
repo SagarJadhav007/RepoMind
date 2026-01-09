@@ -7,7 +7,7 @@ def retrieve_repo_embeddings(
 ):
     supabase = get_db()
 
-    result = (
+    res = (
         supabase
         .rpc(
             "match_repo_embeddings",
@@ -20,4 +20,4 @@ def retrieve_repo_embeddings(
         .execute()
     )
 
-    return result.data or []
+    return res.data or []
