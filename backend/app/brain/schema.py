@@ -14,3 +14,6 @@ class BrainRequest(BaseModel):
 class BrainResponse(BaseModel):
     task_type: TaskType
     result: Dict[str, Any]
+
+class ChatRequest(BaseModel):
+    message: str

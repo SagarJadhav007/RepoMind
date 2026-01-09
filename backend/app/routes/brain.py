@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.brain.engine import run_brain
-from app.brain.schema import BrainRequest
+from app.brain.schema import BrainRequest, ChatRequest
 from app.brain.roles import Role
 from app.brain.task import TaskType
 from app.auth.supabase import get_current_user
@@ -11,7 +11,7 @@ router = APIRouter(tags=["Chat"])
 @router.post("/chat")
 def chat(
     repo_full_name: str,
-    body: BrainRequest,             
+    body: ChatRequest,             
     user=Depends(get_current_user),
 ):
     req = BrainRequest(
