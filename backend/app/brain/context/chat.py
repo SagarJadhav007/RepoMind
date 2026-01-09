@@ -1,29 +1,23 @@
-from app.brain.context.base import retrieve_repo_embeddings, assemble_context
+from app.brain.context.base import retrieve_repo_embeddings
+from app.brain.embedding import embed_text
 
-
-def build_chat_context(req):
+async def build_chat_context(req):
     message = req.payload["message"]
 
-    repo_context = retrieve_repo_embeddings(
+    query_embedding = embed_text(message)
+
+    matches = retrieve_repo_embeddings(
         repo_full_name=req.repo_full_name,
-        query=message,
+        query_embedding=query_embedding,
         limit=8,
     )
 
-    context = assemble_context({
-        "user_question": message,
-        "repo_context": repo_context,
-        "rules": (
-            "Use only the provided repo context.\n"
-            "Mention file paths when relevant.\n"
-            "If unsure, say you are unsure."
-        )
-    })
+    context = "\n\n".join(
+        f"[{m['path']}]\n{m['content']}"
+        for m in matches
+    )
 
     return {
-        "instruction": (
-            "You are a helpful repository assistant helping contributors "
-            "understand the codebase."
-        ),
+        "instruction": "You are an AI assistant helping users understand a GitHub repository.",
         "context": context,
     }

@@ -1,35 +1,23 @@
 from app.db import get_db
-from app.brain.llm.gemini import GeminiLLM
-
-llm = GeminiLLM()
-
 
 def retrieve_repo_embeddings(
     repo_full_name: str,
-    query: str,
+    query_embedding: list[float],
     limit: int = 8,
-) -> str:
-    db = get_db()
-    query_embedding = llm.embed(query)
+):
+    supabase = get_db()
 
-    rows = (
-        db.table("repo_embeddings")
-        .select("path, content")
-        .eq("repo_full_name", repo_full_name)
-        .order("embedding <-> :embedding", desc=False)
-        .limit(limit)
-        .execute({"embedding": query_embedding})
+    result = (
+        supabase
+        .rpc(
+            "match_repo_embeddings",
+            {
+                "query_embedding": query_embedding,
+                "repo": repo_full_name,
+                "match_count": limit,
+            },
+        )
+        .execute()
     )
 
-    chunks = []
-    for r in rows.data or []:
-        chunks.append(f"{r['path']}\n{r['content']}")
-
-    return "\n\n".join(chunks)
-
-
-def assemble_context(sections: dict) -> str:
-    parts = []
-    for title, content in sections.items():
-        parts.append(f"[{title.upper()}]\n{content}")
-    return "\n\n".join(parts)
+    return result.data or []
