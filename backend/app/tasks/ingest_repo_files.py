@@ -160,20 +160,23 @@ def ingest_repo_files(
         for idx, chunk in enumerate(chunks):
             try:
                 embedding = embed_text(chunk)
-                print(type(embedding), len(embedding))
+                print("Embedding OK:", type(embedding), len(embedding))
 
                 supabase.table("repo_embeddings").insert({
                     "repo_full_name": repo_full_name,
                     "path": path,
-                    "chunk_index": idx,
                     "content": chunk,
                     "embedding": embedding,
+                    "metadata": {
+                        "chunk_index": idx,
+                    },
                 }).execute()
 
                 embedded += 1
-            except Exception:
-                # embedding failure should not break ingestion
-                continue
+
+            except Exception as e:
+                print("EMBED INSERT ERROR:", e)
+                raise
 
     return {
         "repo": repo_full_name,
