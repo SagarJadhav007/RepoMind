@@ -6,32 +6,20 @@ from app.brain.task import TaskType
 from app.auth.supabase import get_current_user
 from app.db import get_db
 
-router = APIRouter(prefix="/chat", tags=["Chat"])
+router = APIRouter(tags=["Chat"])
 
-
-@router.post("/")
+@router.post("/chat")
 def chat(
     repo_full_name: str,
-    message: str,
+    body: BrainRequest,             
     user=Depends(get_current_user),
 ):
     req = BrainRequest(
-        user_id=user.id,
+        user_id=user["id"],
         repo_full_name=repo_full_name,
         role=Role.CONTRIBUTOR,
         task_type=TaskType.CHAT,
-        payload={"message": message},
+        payload={"message": body.message},
     )
 
-    result = run_brain(req)
-
-    # optional logging
-    db = get_db()
-    db.table("chat_logs").insert({
-        "user_id": user.id,
-        "repo_full_name": repo_full_name,
-        "message": message,
-        "response": result.get("answer"),
-    }).execute()
-
-    return result
+    return run_brain(req)

@@ -3,8 +3,9 @@ import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { ChatBubble } from "@/components/ChatBubble";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Send, Sparkles } from "lucide-react";
+import { Bot, Send, Sparkles, RefreshCcw } from "lucide-react";
 import { sendChatMessage } from "@/lib/chat";
+import { syncRepoFiles } from "@/lib/repoSync";
 import { nanoid } from "nanoid";
 
 type Message = {
@@ -24,9 +25,10 @@ export default function Assistant() {
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  // TODO: replace with real selected repo from route / context
-  const repoFullName = "SagarJadhav007/";
+  // TEMP: hardcoded repo for debugging
+  const repoFullName = "SagarJadhav007/TIC-TAC-TOC";
 
   async function handleSend(message: string) {
     if (!message.trim()) return;
@@ -47,7 +49,8 @@ export default function Assistant() {
       const assistantMessage: Message = {
         id: nanoid(),
         role: "assistant",
-        content: res.answer || "I couldn’t find an answer in this repository.",
+        content:
+          res.answer || "I couldn’t find an answer in this repository.",
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -65,6 +68,22 @@ export default function Assistant() {
     }
   }
 
+  async function handleSyncRepo() {
+    setSyncing(true);
+    try {
+      const res = await syncRepoFiles(repoFullName);
+      console.log("SYNC RESULT:", res);
+      alert(
+        `Repo synced!\nFiles synced: ${res.synced_files}\nChunks embedded: ${res.embedded_chunks}`
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Repo sync failed. Check backend logs.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <WorkspaceLayout>
       <div className="flex h-[calc(100vh-8rem)] flex-col">
@@ -75,7 +94,9 @@ export default function Assistant() {
               <Bot className="h-5 w-5 text-accent-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">RepoMind Assistant</h1>
+              <h1 className="text-2xl font-bold">
+                RepoMind Assistant
+              </h1>
               <p className="text-muted-foreground">
                 AI-powered help for understanding and navigating the repository.
               </p>
@@ -85,6 +106,19 @@ export default function Assistant() {
 
         {/* Chat Container */}
         <div className="flex flex-1 flex-col rounded-lg border bg-card shadow-card overflow-hidden">
+          {/* Debug Sync Button */}
+          <div className="flex justify-end px-6 pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncRepo}
+              disabled={syncing}
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {syncing ? "Syncing…" : "Sync Repo (Debug)"}
+            </Button>
+          </div>
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {messages.length === 0 && (

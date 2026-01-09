@@ -5,14 +5,15 @@ import requests
 from app.db import get_db
 from app.services.github_auth import get_installation_access_token
 from app.services.chunker import chunk_text
-from app.brain.llm.gemini import embed_text
+from app.brain.embedding import embed_text
 
 BASE_URL = "https://api.github.com"
 
 ALLOWED_EXTENSIONS = (
     ".py", ".js", ".ts", ".jsx", ".tsx",
     ".go", ".java", ".rs", ".md",
-    ".json", ".yaml", ".yml"
+    ".json", ".yaml", ".yml",
+    ".html", ".css", ".ipynb",
 )
 
 MAX_FILE_SIZE = 300_000  # 300 KB
@@ -159,6 +160,7 @@ def ingest_repo_files(
         for idx, chunk in enumerate(chunks):
             try:
                 embedding = embed_text(chunk)
+                print(type(embedding), len(embedding))
 
                 supabase.table("repo_embeddings").insert({
                     "repo_full_name": repo_full_name,

@@ -1,20 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.db import get_db
-from app.services.github_repo_files import ingest_repo_files
+from app.tasks.ingest_repo_files import ingest_repo_files
 from app.auth.supabase import get_current_user
 
 router = APIRouter()
 
 # -------------------------------------------------
-# Sync repo files from GitHub → Supabase
+# Sync repo files from GitHub → Supabase + Embeddings
 # -------------------------------------------------
 @router.post("/repos/{repo_full_name:path}/files/sync")
 def sync_repo_files(
     repo_full_name: str,
     user=Depends(get_current_user),
 ):
+    """
+    TEMP: Directly trigger repo ingestion + embeddings.
+    Later this can be moved to a service / background job.
+    """
+
     supabase = get_db()
     user_id = user["id"]
+
+    # ---------------- Ownership / Access Check ---------------- #
 
     repo = (
         supabase
@@ -27,9 +34,14 @@ def sync_repo_files(
     )
 
     if not repo.data:
-        raise HTTPException(404, "Repo not found or access denied")
+        raise HTTPException(
+            status_code=404,
+            detail="Repo not found or access denied",
+        )
 
     installation_id = repo.data[0]["installation_id"]
+
+    # ---------------- Trigger Ingestion ---------------- #
 
     return ingest_repo_files(
         repo_full_name=repo_full_name,
@@ -49,7 +61,8 @@ def get_repo_files(
     supabase = get_db()
     user_id = user["id"]
 
-    # Ownership check
+    # ---------------- Ownership Check ---------------- #
+
     repo = (
         supabase
         .table("repo_dashboard_snapshot")
@@ -61,7 +74,12 @@ def get_repo_files(
     )
 
     if not repo.data:
-        raise HTTPException(404, "Repo not found or access denied")
+        raise HTTPException(
+            status_code=404,
+            detail="Repo not found or access denied",
+        )
+
+    # ---------------- Fetch Files ---------------- #
 
     files = (
         supabase
