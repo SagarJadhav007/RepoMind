@@ -20,4 +20,13 @@ def retrieve_repo_embeddings(
         .execute()
     )
 
-    return res.data or []
+    results = res.data or []
+
+    # Normalize shape
+    return [
+        {
+            "path": r.get("path"),
+            "content": r.get("content"),
+        }
+        for r in results
+    ]

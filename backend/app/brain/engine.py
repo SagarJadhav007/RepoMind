@@ -4,23 +4,37 @@ from app.brain.llm.gemini import GeminiLLM
 
 llm = GeminiLLM()
 
-async def run_brain(req):            
-    payload = await route_task(req)  
+async def run_brain(req):
+    payload = await route_task(req)
 
     prompt = f"""
 {payload['instruction']}
 
+Context:
 {payload['context']}
 
-Return valid JSON only in this format:
+Rules:
+- Be concise
+- Use bullet points where helpful
+- Cite file names when relevant
+
+Return valid JSON ONLY in this format:
 {{
-  "answer": "..."
+  "answer": "clear explanation",
+  "sources": ["file1.js", "file2.html"]
 }}
 """
 
-    raw = llm.generate(prompt)       
+    raw = llm.generate(prompt)
 
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        return {
+            "answer": parsed.get("answer", ""),
+            "sources": parsed.get("sources", payload.get("sources", [])),
+        }
     except Exception:
-        return {"answer": raw}
+        return {
+            "answer": raw,
+            "sources": payload.get("sources", []),
+        }

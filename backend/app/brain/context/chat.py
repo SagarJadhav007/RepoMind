@@ -12,12 +12,21 @@ async def build_chat_context(req):
         limit=8,
     )
 
-    context = "\n\n".join(
-        f"[{m['path']}]\n{m['content']}"
-        for m in matches
-    )
+    context_blocks = []
+    sources = []
+
+    for m in matches:
+        context_blocks.append(
+            f"File: {m['path']}\n{m['content']}"
+        )
+        sources.append(m["path"])
 
     return {
-        "instruction": "You are an AI assistant helping users understand a GitHub repository.",
-        "context": context,
+        "instruction": (
+            "You are an AI assistant helping users understand a GitHub repository.\n"
+            "Answer clearly and concisely.\n"
+            "When referring to code, mention the file name."
+        ),
+        "context": "\n\n---\n\n".join(context_blocks),
+        "sources": sorted(set(sources)),
     }

@@ -12,13 +12,14 @@ type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  sources?: string[];
 };
 
 const suggestedQuestions = [
-  "What are good first issues for new contributors?",
-  "Explain the authentication module",
-  "What are the most important files to review?",
-  "How do I set up the development environment?",
+  "What is this repository about?",
+  "Where is the core logic implemented?",
+  "Explain the winning conditions",
+  "What files should I read first?",
 ];
 
 export default function Assistant() {
@@ -27,11 +28,11 @@ export default function Assistant() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  // TEMP: hardcoded repo for debugging
+  // TEMP: hardcoded repo
   const repoFullName = "SagarJadhav007/TIC-TAC-TOC";
 
   async function handleSend(message: string) {
-    if (!message.trim()) return;
+    if (!message.trim() || loading) return;
 
     const userMessage: Message = {
       id: nanoid(),
@@ -51,10 +52,11 @@ export default function Assistant() {
         role: "assistant",
         content:
           res.answer || "I couldn’t find an answer in this repository.",
+        sources: res.sources || [],
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err) {
+    } catch (error) {
       setMessages((prev) => [
         ...prev,
         {
@@ -72,12 +74,11 @@ export default function Assistant() {
     setSyncing(true);
     try {
       const res = await syncRepoFiles(repoFullName);
-      console.log("SYNC RESULT:", res);
       alert(
-        `Repo synced!\nFiles synced: ${res.synced_files}\nChunks embedded: ${res.embedded_chunks}`
+        `Repo synced successfully!\n\nFiles synced: ${res.synced_files}\nChunks embedded: ${res.embedded_chunks}`
       );
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       alert("Repo sync failed. Check backend logs.");
     } finally {
       setSyncing(false);
@@ -94,11 +95,9 @@ export default function Assistant() {
               <Bot className="h-5 w-5 text-accent-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">
-                RepoMind Assistant
-              </h1>
+              <h1 className="text-2xl font-bold">RepoMind Assistant</h1>
               <p className="text-muted-foreground">
-                AI-powered help for understanding and navigating the repository.
+                Ask questions and get answers with file-level citations.
               </p>
             </div>
           </div>
@@ -106,7 +105,7 @@ export default function Assistant() {
 
         {/* Chat Container */}
         <div className="flex flex-1 flex-col rounded-lg border bg-card shadow-card overflow-hidden">
-          {/* Debug Sync Button */}
+          {/* Sync Button */}
           <div className="flex justify-end px-6 pt-4">
             <Button
               variant="outline"
@@ -132,14 +131,12 @@ export default function Assistant() {
                 key={message.id}
                 role={message.role}
                 content={message.content}
+                sources={message.sources}
               />
             ))}
 
             {loading && (
-              <ChatBubble
-                role="assistant"
-                content="Thinking…"
-              />
+              <ChatBubble role="assistant" content="Thinking…" />
             )}
           </div>
 
@@ -152,9 +149,9 @@ export default function Assistant() {
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {suggestedQuestions.map((q, i) => (
+              {suggestedQuestions.map((q) => (
                 <button
-                  key={i}
+                  key={q}
                   onClick={() => handleSend(q)}
                   className="rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted"
                 >
