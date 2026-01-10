@@ -10,31 +10,30 @@ async def run_brain(req):
     prompt = f"""
 {payload['instruction']}
 
-Context:
+Repository context:
 {payload['context']}
 
-Rules:
-- Be concise
-- Use bullet points where helpful
-- Cite file names when relevant
-
-Return valid JSON ONLY in this format:
+Respond ONLY in this JSON format:
 {{
-  "answer": "clear explanation",
-  "sources": ["file1.js", "file2.html"]
+  "answer": "Markdown explanation",
+  "confidence": "high | medium | low",
+  "sources": [
+    {{
+      "file": "filename",
+      "lines": "start–end",
+      "snippet": "short code excerpt"
+    }}
+  ]
 }}
 """
 
     raw = llm.generate(prompt)
 
     try:
-        parsed = json.loads(raw)
-        return {
-            "answer": parsed.get("answer", ""),
-            "sources": parsed.get("sources", payload.get("sources", [])),
-        }
+        return json.loads(raw)
     except Exception:
         return {
             "answer": raw,
-            "sources": payload.get("sources", []),
+            "confidence": "low",
+            "sources": [],
         }

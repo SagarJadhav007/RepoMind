@@ -8,12 +8,29 @@ import { sendChatMessage } from "@/lib/chat";
 import { syncRepoFiles } from "@/lib/repoSync";
 import { nanoid } from "nanoid";
 
+/* ---------------- Types ---------------- */
+
+type Source = {
+  file: string;
+  lines: string;
+  snippet: string;
+};
+
+type AssistantResponse = {
+  answer: string;
+  confidence?: "high" | "medium" | "low";
+  sources?: Source[];
+};
+
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  sources?: string[];
+  confidence?: string;
+  sources?: Source[];
 };
+
+/* ---------------- Constants ---------------- */
 
 const suggestedQuestions = [
   "What is this repository about?",
@@ -22,41 +39,51 @@ const suggestedQuestions = [
   "What files should I read first?",
 ];
 
+const repoFullName = "SagarJadhav007/TIC-TAC-TOC";
+
+/* ---------------- Component ---------------- */
+
 export default function Assistant() {
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  // TEMP: hardcoded repo
-  const repoFullName = "SagarJadhav007/TIC-TAC-TOC";
+  /* ---------------- Chat ---------------- */
 
   async function handleSend(message: string) {
     if (!message.trim() || loading) return;
 
-    const userMessage: Message = {
-      id: nanoid(),
-      role: "user",
-      content: message,
-    };
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: nanoid(),
+        role: "user",
+        content: message,
+      },
+    ]);
 
-    setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setLoading(true);
 
     try {
-      const res = await sendChatMessage(repoFullName, message);
+      const res: AssistantResponse = await sendChatMessage(
+        repoFullName,
+        message
+      );
 
-      const assistantMessage: Message = {
-        id: nanoid(),
-        role: "assistant",
-        content:
-          res.answer || "I couldn’t find an answer in this repository.",
-        sources: res.sources || [],
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nanoid(),
+          role: "assistant",
+          content:
+            res.answer || "I couldn’t find an answer in this repository.",
+          confidence: res.confidence,
+          sources: res.sources || [],
+        },
+      ]);
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
@@ -70,6 +97,8 @@ export default function Assistant() {
     }
   }
 
+  /* ---------------- Repo Sync ---------------- */
+
   async function handleSyncRepo() {
     setSyncing(true);
     try {
@@ -77,13 +106,15 @@ export default function Assistant() {
       alert(
         `Repo synced successfully!\n\nFiles synced: ${res.synced_files}\nChunks embedded: ${res.embedded_chunks}`
       );
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
       alert("Repo sync failed. Check backend logs.");
     } finally {
       setSyncing(false);
     }
   }
+
+  /* ---------------- UI ---------------- */
 
   return (
     <WorkspaceLayout>
@@ -126,12 +157,13 @@ export default function Assistant() {
               </p>
             )}
 
-            {messages.map((message) => (
+            {messages.map((msg) => (
               <ChatBubble
-                key={message.id}
-                role={message.role}
-                content={message.content}
-                sources={message.sources}
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                confidence={msg.confidence}
+                sources={msg.sources}
               />
             ))}
 

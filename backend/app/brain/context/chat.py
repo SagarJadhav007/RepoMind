@@ -4,29 +4,31 @@ from app.brain.embedding import embed_text
 async def build_chat_context(req):
     message = req.payload["message"]
 
-    query_embedding = embed_text(message)
+    query_embedding = await embed_text(message)
 
     matches = retrieve_repo_embeddings(
         repo_full_name=req.repo_full_name,
         query_embedding=query_embedding,
-        limit=8,
+        limit=6,
     )
 
     context_blocks = []
-    sources = []
-
     for m in matches:
         context_blocks.append(
-            f"File: {m['path']}\n{m['content']}"
+            f"""
+FILE: {m['path']}
+LINES: {m.get('start_line', '?')}–{m.get('end_line', '?')}
+CODE:
+{m['content']}
+"""
         )
-        sources.append(m["path"])
 
     return {
         "instruction": (
-            "You are an AI assistant helping users understand a GitHub repository.\n"
-            "Answer clearly and concisely.\n"
-            "When referring to code, mention the file name."
+            "You are a GitHub repository assistant.\n"
+            "Answer clearly using markdown.\n"
+            "Always include sources with file names and line ranges.\n"
+            "Return JSON only."
         ),
-        "context": "\n\n---\n\n".join(context_blocks),
-        "sources": sorted(set(sources)),
+        "context": "\n\n".join(context_blocks),
     }

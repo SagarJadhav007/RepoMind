@@ -1,57 +1,61 @@
-import { cn } from "@/lib/utils";
-import { Bot, User, FileText } from "lucide-react";
+import { Bot, User, Code } from "lucide-react";
 
-interface ChatBubbleProps {
-  role: "user" | "assistant";
-  content: string;
-  sources?: string[];
-}
-
-export function ChatBubble({ role, content, sources }: ChatBubbleProps) {
+export function ChatBubble({ role, content }: any) {
   const isAssistant = role === "assistant";
 
+  let parsed;
+  try {
+    parsed = isAssistant ? JSON.parse(content) : null;
+  } catch {
+    parsed = null;
+  }
+
   return (
-    <div className={cn("flex gap-3", isAssistant ? "flex-row" : "flex-row-reverse")}>
-      <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-          isAssistant
-            ? "bg-accent text-accent-foreground"
-            : "bg-muted text-muted-foreground"
-        )}
-      >
-        {isAssistant ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
+    <div className={`flex gap-3 ${isAssistant ? "" : "flex-row-reverse"}`}>
+      <div className="h-8 w-8 rounded-full flex items-center justify-center bg-muted">
+        {isAssistant ? <Bot size={16} /> : <User size={16} />}
       </div>
 
-      <div
-        className={cn(
-          "max-w-[80%] rounded-2xl px-4 py-3 text-sm space-y-3",
-          isAssistant
-            ? "rounded-tl-sm bg-card border border-border"
-            : "rounded-tr-sm bg-primary text-primary-foreground"
-        )}
-      >
-        <div className="whitespace-pre-wrap leading-relaxed">
-          {content}
-        </div>
+      <div className="max-w-[80%] rounded-xl border p-4 bg-card text-sm space-y-3">
+        {!parsed && <p>{content}</p>}
 
-        {isAssistant && sources && sources.length > 0 && (
-          <div className="pt-2 border-t text-xs text-muted-foreground">
-            <div className="flex items-center gap-1 mb-1">
-              <FileText className="h-3 w-3" />
-              <span>Sources</span>
+        {parsed && (
+          <>
+            {/* Answer */}
+            <div className="prose prose-sm max-w-none">
+              <p>{parsed.answer}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {sources.map((src) => (
-                <span
-                  key={src}
-                  className="rounded-md border bg-muted px-2 py-0.5"
-                >
-                  {src}
-                </span>
-              ))}
-            </div>
-          </div>
+
+            {/* Confidence */}
+            {parsed.confidence && (
+              <div className="text-xs text-muted-foreground">
+                Confidence: <strong>{parsed.confidence}</strong>
+              </div>
+            )}
+
+            {/* Sources */}
+            {parsed.sources?.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold">Sources</div>
+
+                {parsed.sources.map((s: any, i: number) => (
+                  <div key={i} className="rounded-md bg-muted p-3 text-xs">
+                    <a
+                      href={`https://github.com/${"SagarJadhav007/TIC-TAC-TOC"}/blob/main/${s.file}`}
+                      target="_blank"
+                      className="font-medium underline"
+                    >
+                      {s.file} (lines {s.lines})
+                    </a>
+
+                    <pre className="mt-2 overflow-x-auto rounded bg-black text-green-400 p-2">
+                      <code>{s.snippet}</code>
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
