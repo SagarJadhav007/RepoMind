@@ -4,7 +4,7 @@ from app.brain.embedding import embed_text
 async def build_chat_context(req):
     message = req.payload["message"]
 
-    query_embedding = await embed_text(message)
+    query_embedding = embed_text(message)
 
     matches = retrieve_repo_embeddings(
         repo_full_name=req.repo_full_name,
