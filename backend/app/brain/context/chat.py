@@ -20,15 +20,20 @@ FILE: {m['path']}
 LINES: {m.get('start_line', '?')}–{m.get('end_line', '?')}
 CODE:
 {m['content']}
-"""
+""".strip()
         )
 
     return {
         "instruction": (
-            "You are a GitHub repository assistant.\n"
-            "Answer clearly using markdown.\n"
-            "Always include sources with file names and line ranges.\n"
-            "Return JSON only."
+            "You are a GitHub repository assistant.\n\n"
+            f"USER QUESTION:\n{message}\n\n"
+            "Rules:\n"
+            "- Answer ONLY what the user asked\n"
+            "- If the provided code does not contain the answer, say so clearly\n"
+            "- Use markdown for readability\n"
+            "- Include sources with file names and line ranges\n"
+            "- Do NOT guess or infer beyond the code\n"
+            "- Return JSON only in the specified schema\n"
         ),
         "context": "\n\n".join(context_blocks),
     }
