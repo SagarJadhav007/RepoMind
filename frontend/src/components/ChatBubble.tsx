@@ -1,61 +1,109 @@
-import { Bot, User, Code } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Bot, User, FileText } from "lucide-react";
 
-export function ChatBubble({ role, content }: any) {
+interface Source {
+  file: string;
+  lines?: string;
+  snippet?: string;
+}
+
+interface ChatBubbleProps {
+  role: "user" | "assistant";
+  content: string;
+  sources?: Source[];
+  confidence?: "high" | "medium" | "low";
+}
+
+export function ChatBubble({
+  role,
+  content,
+  sources = [],
+  confidence,
+}: ChatBubbleProps) {
   const isAssistant = role === "assistant";
 
-  let parsed;
-  try {
-    parsed = isAssistant ? JSON.parse(content) : null;
-  } catch {
-    parsed = null;
-  }
-
   return (
-    <div className={`flex gap-3 ${isAssistant ? "" : "flex-row-reverse"}`}>
-      <div className="h-8 w-8 rounded-full flex items-center justify-center bg-muted">
+    <div
+      className={cn(
+        "flex gap-3",
+        isAssistant ? "flex-row" : "flex-row-reverse"
+      )}
+    >
+      {/* Avatar */}
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          isAssistant
+            ? "bg-accent text-accent-foreground"
+            : "bg-muted text-muted-foreground"
+        )}
+      >
         {isAssistant ? <Bot size={16} /> : <User size={16} />}
       </div>
 
-      <div className="max-w-[80%] rounded-xl border p-4 bg-card text-sm space-y-3">
-        {!parsed && <p>{content}</p>}
+      {/* Bubble */}
+      <div
+        className={cn(
+          "max-w-[80%] rounded-2xl px-4 py-3 text-sm space-y-3",
+          isAssistant
+            ? "rounded-tl-sm bg-card border"
+            : "rounded-tr-sm bg-primary text-primary-foreground"
+        )}
+      >
+        {/* Answer */}
+        <div className="whitespace-pre-wrap leading-relaxed">
+          {content}
+        </div>
 
-        {parsed && (
-          <>
-            {/* Answer */}
-            <div className="prose prose-sm max-w-none">
-              <p>{parsed.answer}</p>
-            </div>
+        {/* Sources */}
+        {isAssistant && sources.length > 0 && (
+          <div className="pt-2 border-t space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Sources
+            </p>
 
-            {/* Confidence */}
-            {parsed.confidence && (
-              <div className="text-xs text-muted-foreground">
-                Confidence: <strong>{parsed.confidence}</strong>
+            {sources.map((src, idx) => (
+              <div key={idx} className="text-xs space-y-1">
+                <a
+                  href={`https://github.com/${src.file}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-accent hover:underline"
+                >
+                  <FileText size={12} />
+                  {src.file}
+                  {src.lines && (
+                    <span className="text-muted-foreground">
+                      (lines {src.lines})
+                    </span>
+                  )}
+                </a>
+
+                {src.snippet && (
+                  <pre className="rounded-md bg-muted p-2 overflow-x-auto text-xs">
+                    <code>{src.snippet}</code>
+                  </pre>
+                )}
               </div>
-            )}
+            ))}
+          </div>
+        )}
 
-            {/* Sources */}
-            {parsed.sources?.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-xs font-semibold">Sources</div>
-
-                {parsed.sources.map((s: any, i: number) => (
-                  <div key={i} className="rounded-md bg-muted p-3 text-xs">
-                    <a
-                      href={`https://github.com/${"SagarJadhav007/TIC-TAC-TOC"}/blob/main/${s.file}`}
-                      target="_blank"
-                      className="font-medium underline"
-                    >
-                      {s.file} (lines {s.lines})
-                    </a>
-
-                    <pre className="mt-2 overflow-x-auto rounded bg-black text-green-400 p-2">
-                      <code>{s.snippet}</code>
-                    </pre>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+        {/* Confidence */}
+        {isAssistant && confidence && (
+          <div className="pt-1 text-xs">
+            <span className="text-muted-foreground">Confidence:</span>{" "}
+            <span
+              className={cn(
+                "font-medium",
+                confidence === "high" && "text-green-600",
+                confidence === "medium" && "text-yellow-600",
+                confidence === "low" && "text-red-600"
+              )}
+            >
+              {confidence.toUpperCase()}
+            </span>
+          </div>
         )}
       </div>
     </div>

@@ -8,4 +8,4 @@ def embed_text(text: str) -> list[float]:
         model="text-embedding-004",
         contents=text,
     )
-    return response["embedding"]
+    return response.embeddings[0].values

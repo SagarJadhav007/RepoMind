@@ -12,8 +12,8 @@ import { nanoid } from "nanoid";
 
 type Source = {
   file: string;
-  lines: string;
-  snippet: string;
+  lines?: string;
+  snippet?: string;
 };
 
 type AssistantResponse = {
@@ -26,7 +26,7 @@ type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  confidence?: string;
+  confidence?: "high" | "medium" | "low";
   sources?: Source[];
 };
 
