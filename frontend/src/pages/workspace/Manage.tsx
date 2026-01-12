@@ -116,81 +116,98 @@ export default function Manage() {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Pull Requests */}
-          <div className="rounded-lg border bg-card">
-            <div className="border-b px-6 py-4 flex items-center gap-2">
-              <GitPullRequest className="h-5 w-5 text-accent" />
-              <h2 className="font-semibold">Pull Requests</h2>
-            </div>
+        {/* ================= ISSUES ================= */}
+        <div className="rounded-lg border bg-card h-[500px] flex flex-col">
+          <div className="border-b px-6 py-4 flex items-center gap-2">
+            <CircleDot className="h-5 w-5 text-warning" />
+            <h2 className="font-semibold">Issues</h2>
+          </div>
 
-            <div className="divide-y">
-              {prs.length === 0 && (
-                <p className="p-6 text-sm text-muted-foreground">
-                  No open pull requests
-                </p>
-              )}
+          {/* Scrollable content */}
+          <div className="relative flex-1 px-6 py-4 overflow-y-auto scrollbar-hide">
+            <div className="absolute left-3 top-0 h-full w-px bg-border" />
 
-              {prs.map((pr) => (
-                <div key={pr.id} className="px-6 py-4">
-                  <p className="font-medium">
-                    #{pr.id} {pr.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    by @{pr.author}
-                  </p>
+            {issues.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No open issues
+              </p>
+            )}
 
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {pr.labels.map((l) => (
-                      <Badge key={l} variant="outline" className="text-xs">
-                        {l}
-                      </Badge>
-                    ))}
+            <div className="space-y-6">
+              {issues.map((issue) => (
+                <div key={issue.id} className="relative flex gap-6">
+                  <div className="relative z-10 h-3 w-3 rounded-full bg-warning mt-1" />
+
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      #{issue.id} {issue.title}
+                    </p>
+
+                    <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                      <MessageSquare className="h-4 w-4" />
+                      {issue.comments} comments
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {issue.labels.map((l) => (
+                        <Badge
+                          key={l}
+                          variant="outline"
+                          className={cn(
+                            "text-xs",
+                            l === "high-impact" &&
+                              "bg-destructive/10 text-destructive border-destructive/20"
+                          )}
+                        >
+                          {l}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Issues */}
-          <div className="rounded-lg border bg-card">
-            <div className="border-b px-6 py-4 flex items-center gap-2">
-              <CircleDot className="h-5 w-5 text-warning" />
-              <h2 className="font-semibold">Issues</h2>
-            </div>
+        {/* ================= PULL REQUESTS ================= */}
+        <div className="rounded-lg border bg-card h-[500px] flex flex-col">
+          <div className="border-b px-6 py-4 flex items-center gap-2">
+            <GitPullRequest className="h-5 w-5 text-accent" />
+            <h2 className="font-semibold">Pull Requests</h2>
+          </div>
 
-            <div className="divide-y">
-              {issues.length === 0 && (
-                <p className="p-6 text-sm text-muted-foreground">
-                  No open issues
-                </p>
-              )}
+          {/* Scrollable content */}
+          <div className="relative flex-1 px-6 py-4 overflow-y-auto scrollbar-hide">
+            <div className="absolute left-3 top-0 h-full w-px bg-border" />
 
-              {issues.map((issue) => (
-                <div key={issue.id} className="px-6 py-4">
-                  <p className="font-medium">
-                    #{issue.id} {issue.title}
-                  </p>
+            {prs.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No open pull requests
+              </p>
+            )}
 
-                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                    <MessageSquare className="h-4 w-4" />
-                    {issue.comments}
-                  </div>
+            <div className="space-y-6">
+              {prs.map((pr) => (
+                <div key={pr.id} className="relative flex gap-6">
+                  <div className="relative z-10 h-3 w-3 rounded-full bg-accent mt-1" />
 
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {issue.labels.map((l) => (
-                      <Badge
-                        key={l}
-                        variant="outline"
-                        className={cn(
-                          "text-xs",
-                          l === "high-impact" &&
-                            "bg-destructive/10 text-destructive border-destructive/20"
-                        )}
-                      >
-                        {l}
-                      </Badge>
-                    ))}
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      #{pr.id} {pr.title}
+                    </p>
+
+                    <p className="text-sm text-muted-foreground">
+                      by @{pr.author}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {pr.labels.map((l) => (
+                        <Badge key={l} variant="outline" className="text-xs">
+                          {l}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
