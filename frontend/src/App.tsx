@@ -19,6 +19,7 @@ import SelectRepo from "./pages/SelectRepo";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RepoFilesPage from "./pages/RepoFiles";
 import ConnectGithub from "./pages/ConnectGithub";
+import { RepoProvider } from "./context/RepoContext";
 
 const queryClient = new QueryClient();
 
@@ -34,23 +35,25 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/select-repo" element={<SelectRepo />} />
             <Route path="/connect-github" element={<ConnectGithub />} />
-            <Route path="/repo-files/:repoFullName/*" element={<RepoFilesPage/>}/>
+            <Route path="/repo-files/:repoFullName/*" element={<RepoFilesPage />} />
 
             {/* 🔐 PROTECTED WORKSPACE */}
             <Route
               path="/workspace/*"
               element={
                 <ProtectedRoute>
-                  <Routes>
-                    <Route path=":repo" element={<Dashboard />} />
-                    <Route path=":repo/health" element={<Health />} />
-                    <Route path=":repo/manage" element={<Manage />} />
-                    <Route path=":repo/contributors" element={<Contributors />} />
-                    <Route path=":repo/planning" element={<Planning />} />
-                    <Route path=":repo/assistant" element={<Assistant />} />
-                    <Route path=":repo/activity" element={<Activity />} />
-                    <Route path=":repo/profile" element={<Profile />} />
-                  </Routes>
+                  <RepoProvider>
+                    <Routes>
+                      <Route path=":repo" element={<Dashboard />} />
+                      <Route path=":repo/health" element={<Health />} />
+                      <Route path=":repo/manage" element={<Manage />} />
+                      <Route path=":repo/contributors" element={<Contributors />} />
+                      <Route path=":repo/planning" element={<Planning />} />
+                      <Route path=":repo/assistant" element={<Assistant />} />
+                      <Route path=":repo/activity" element={<Activity />} />
+                      <Route path=":repo/profile" element={<Profile />} />
+                    </Routes>
+                  </RepoProvider>
                 </ProtectedRoute>
               }
             />
