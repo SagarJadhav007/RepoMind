@@ -20,72 +20,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const initialColumns: PlanningColumnType[] = [
-  {
-    id: "planned",
-    title: "Planned",
-    description: "Features in the pipeline",
-    color: COLUMN_COLORS[0].value,
-    cards: [
-      {
-        id: "card-1",
-        title: "Implement notifications",
-        description: "Add real-time push notifications for important events",
-        linkedIssue: 42,
-        linkedPR: null,
-      },
-      {
-        id: "card-2",
-        title: "Dark mode improvements",
-        description: "Enhance contrast and color palette for dark theme",
-        linkedIssue: 38,
-        linkedPR: null,
-      },
-    ],
-  },
-  {
-    id: "in-progress",
-    title: "In Progress",
-    description: "Currently being worked on",
-    color: COLUMN_COLORS[6].value,
-    cards: [
-      {
-        id: "card-3",
-        title: "API rate limiting",
-        description: "Implement rate limiting for public API endpoints",
-        linkedPR: 156,
-        linkedIssue: 35,
-      },
-    ],
-  },
-  {
-    id: "shipped",
-    title: "Shipped",
-    description: "Released to production",
-    color: COLUMN_COLORS[4].value,
-    cards: [
-      {
-        id: "card-4",
-        title: "User authentication",
-        description: "OAuth2 login with GitHub, Google, and email",
-        linkedPR: 142,
-        linkedIssue: 20,
-      },
-      {
-        id: "card-5",
-        title: "Dashboard redesign",
-        description: "New modern dashboard layout with improved metrics",
-        linkedPR: 138,
-        linkedIssue: 15,
-      },
-    ],
-  },
-];
+const initialColumns: PlanningColumnType[] = [];
 
 export function KanbanBoard() {
   const { repo } = useRepo();
   const { toast } = useToast();
-  const [columns, setColumns] = useState<PlanningColumnType[]>(initialColumns);
+  const [columns, setColumns] = useState<PlanningColumnType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,31 +51,29 @@ export function KanbanBoard() {
       return;
     }
 
-    const loadBoard = async () => {
+    (async () => {
       try {
         setLoading(true);
         setError(null);
         const board = await planningApi.getBoard(repo);
 
-        // Convert API response to component format
-        const loadedColumns: PlanningColumnType[] = board.columns.map((col) => ({
-          id: col.id,
-          title: col.title,
-          description: col.description,
-          color: col.color,
-          cards: col.cards.map((card) => ({
-            id: card.id,
-            title: card.title,
-            description: card.description,
-            linkedPR: card.linkedPR,
-            linkedIssue: card.linkedIssue,
-          })),
-        }));
-
-        setColumns(loadedColumns);
-      } catch (error) {
-        console.error("Failed to load planning board:", error);
-        const errorMessage = error instanceof Error ? error.message : "Failed to load your planning board";
+        setColumns(
+          board.columns.map((col) => ({
+            id: col.id,
+            title: col.title,
+            description: col.description,
+            color: col.color,
+            cards: col.cards.map((card) => ({
+              id: card.id,
+              title: card.title,
+              description: card.description,
+              linkedPR: card.linkedPR,
+              linkedIssue: card.linkedIssue,
+            })),
+          }))
+        );
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load board";
         setError(errorMessage);
         toast({
           title: "Error",
@@ -145,9 +83,7 @@ export function KanbanBoard() {
       } finally {
         setLoading(false);
       }
-    };
-
-    loadBoard();
+    })();
   }, [repo, toast]);
 
   // Column CRUD Handlers
@@ -343,93 +279,80 @@ export function KanbanBoard() {
   // Drag and drop handler
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, type } = result;
-
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-    if (!repo) return;
+    if (!destination || !repo) return;
 
     try {
       setSaving(true);
 
       if (type === "column") {
-        const newColumns = Array.from(columns);
-        const [removed] = newColumns.splice(source.index, 1);
-        newColumns.splice(destination.index, 0, removed);
-        setColumns(newColumns);
+        const updated = Array.from(columns);
+        const [moved] = updated.splice(source.index, 1);
+        updated.splice(destination.index, 0, moved);
+        setColumns(updated);
 
-        // Save to backend
-        const columnIds = newColumns.map((col) => col.id);
+        const columnIds = updated.map(c => c.id).filter(Boolean);
         await planningApi.reorderColumns(repo, columnIds);
       } else {
-        const sourceColumn = columns.find((col) => col.id === source.droppableId);
-        const destColumn = columns.find((col) => col.id === destination.droppableId);
+        const sourceCol = columns.find(c => c.id === source.droppableId);
+        const destCol = columns.find(c => c.id === destination.droppableId);
+        if (!sourceCol || !destCol) return;
 
-        if (!sourceColumn || !destColumn) return;
+        if (sourceCol.id === destCol.id) {
+          const cards = Array.from(sourceCol.cards);
+          const [moved] = cards.splice(source.index, 1);
+          cards.splice(destination.index, 0, moved);
 
-        if (sourceColumn.id === destColumn.id) {
-          // Same column reorder
-          const newCards = Array.from(sourceColumn.cards);
-          const [removed] = newCards.splice(source.index, 1);
-          newCards.splice(destination.index, 0, removed);
-
-          setColumns(
-            columns.map((col) =>
-              col.id === sourceColumn.id ? { ...col, cards: newCards } : col
-            )
+          setColumns(cols =>
+            cols.map(c => c.id === sourceCol.id ? { ...c, cards } : c)
           );
 
-          // Save to backend
-          const cardIds = newCards.map((card) => card.id);
-          await planningApi.reorderCards(sourceColumn.id, cardIds);
+          const cardIds = cards.map(c => c.id).filter(Boolean);
+          await planningApi.reorderCards(sourceCol.id, cardIds);
         } else {
-          // Move between columns
-          const sourceCards = Array.from(sourceColumn.cards);
-          const destCards = Array.from(destColumn.cards);
-          const [removed] = sourceCards.splice(source.index, 1);
-          destCards.splice(destination.index, 0, removed);
+          const sourceCards = Array.from(sourceCol.cards);
+          const destCards = Array.from(destCol.cards);
+          const [moved] = sourceCards.splice(source.index, 1);
+          destCards.splice(destination.index, 0, moved);
 
-          setColumns(
-            columns.map((col) => {
-              if (col.id === sourceColumn.id) return { ...col, cards: sourceCards };
-              if (col.id === destColumn.id) return { ...col, cards: destCards };
-              return col;
+          setColumns(cols =>
+            cols.map(c => {
+              if (c.id === sourceCol.id) return { ...c, cards: sourceCards };
+              if (c.id === destCol.id) return { ...c, cards: destCards };
+              return c;
             })
           );
 
-          // Save to backend
-          await planningApi.moveCard(removed.id, destColumn.id, destination.index);
+          await planningApi.moveCard(moved.id, destCol.id, destination.index);
         }
       }
 
-      toast({
-        title: "Success",
-        description: "Changes saved",
-      });
-    } catch (error) {
-      console.error("Failed to save changes:", error);
+      toast({ title: "Success", description: "Changes saved" });
+    } catch (err) {
+      console.error(err);
       toast({
         title: "Error",
-        description: "Failed to save changes",
+        description: err instanceof Error ? err.message : "Failed to save changes",
         variant: "destructive",
       });
       // Reload board to sync state with server
       if (repo) {
         try {
           const board = await planningApi.getBoard(repo);
-          const loadedColumns: PlanningColumnType[] = board.columns.map((col) => ({
-            id: col.id,
-            title: col.title,
-            description: col.description,
-            color: col.color,
-            cards: col.cards.map((card) => ({
-              id: card.id,
-              title: card.title,
-              description: card.description,
-              linkedPR: card.linkedPR,
-              linkedIssue: card.linkedIssue,
-            })),
-          }));
-          setColumns(loadedColumns);
+          setColumns(
+            board.columns.map((col) => ({
+              id: col.id,
+              title: col.title,
+              description: col.description,
+              color: col.color,
+              cards: col.cards.map((card) => ({
+                id: card.id,
+                title: card.title,
+                description: card.description,
+                linkedPR: card.linkedPR,
+                linkedIssue: card.linkedIssue,
+              })),
+            }))
+          );
         } catch (reloadError) {
           console.error("Failed to reload board:", reloadError);
         }
@@ -451,21 +374,8 @@ export function KanbanBoard() {
     );
   }
 
-  // Render no repo selected state
-  if (!repo) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <AlertCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-muted-foreground">No repository selected</p>
-          <p className="text-sm text-muted-foreground/70">Please select a repository first</p>
-        </div>
-      </div>
-    );
-  }
-
   // Render error state
-  if (error && !loading) {
+  if (error) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3 text-center">
@@ -475,24 +385,24 @@ export function KanbanBoard() {
             onClick={() => {
               setError(null);
               setLoading(true);
-              // Reload board
               if (repo) {
                 planningApi.getBoard(repo)
                   .then(board => {
-                    const loadedColumns: PlanningColumnType[] = board.columns.map((col) => ({
-                      id: col.id,
-                      title: col.title,
-                      description: col.description,
-                      color: col.color,
-                      cards: col.cards.map((card) => ({
-                        id: card.id,
-                        title: card.title,
-                        description: card.description,
-                        linkedPR: card.linkedPR,
-                        linkedIssue: card.linkedIssue,
-                      })),
-                    }));
-                    setColumns(loadedColumns);
+                    setColumns(
+                      board.columns.map((col) => ({
+                        id: col.id,
+                        title: col.title,
+                        description: col.description,
+                        color: col.color,
+                        cards: col.cards.map((card) => ({
+                          id: card.id,
+                          title: card.title,
+                          description: card.description,
+                          linkedPR: card.linkedPR,
+                          linkedIssue: card.linkedIssue,
+                        })),
+                      }))
+                    );
                   })
                   .catch(err => setError(err instanceof Error ? err.message : "Failed to load"))
                   .finally(() => setLoading(false));

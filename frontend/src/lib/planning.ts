@@ -50,20 +50,24 @@ async function apiCall(
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || `API error: ${response.status}`);
+    console.error("API ERROR:", error);
+
+    throw new Error(
+      typeof error.detail === "string"
+        ? error.detail
+        : JSON.stringify(error.detail, null, 2)
+    );
   }
 
   return response.json();
 }
 
 // ==================== Board API ====================
-
 export async function getBoard(repo: string): Promise<PlanningBoard> {
   return apiCall(`/planning/board?repo=${encodeURIComponent(repo)}`);
 }
 
 // ==================== Column API ====================
-
 export async function createColumn(
   repo: string,
   data: { title: string; description: string; color: string },
@@ -91,13 +95,12 @@ export async function reorderColumns(repo: string, columnIds: string[]) {
     `/planning/columns/reorder?repo=${encodeURIComponent(repo)}`,
     "PUT",
     {
-      column_ids: columnIds,
+      column_ids: columnIds.filter(Boolean),
     },
   );
 }
 
 // ==================== Card API ====================
-
 export async function createCard(
   columnId: string,
   data: {
@@ -138,7 +141,11 @@ export async function moveCard(
 }
 
 export async function reorderCards(columnId: string, cardIds: string[]) {
-  return apiCall(`/planning/cards/reorder?column_id=${columnId}`, "PUT", {
-    card_ids: cardIds,
-  });
+  return apiCall(
+    `/planning/cards/reorder?column_id=${columnId}`,
+    "PUT",
+    {
+      card_ids: cardIds.filter(Boolean),
+    },
+  );
 }
