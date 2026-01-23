@@ -218,6 +218,43 @@ def create_card(column_id: str, data: CardData, user=Depends(get_current_user)):
         "linkedIssue": card["linked_issue"],
     }
 
+@router.put("/cards/move")
+def move_card(card_id: str, to_column_id: str, position: int, user=Depends(get_current_user)):
+    """Move a card to a different column or position"""
+    supabase = get_db()
+    
+    # Verify ownership
+    verify_card_ownership(supabase, card_id, user["id"])
+    verify_column_ownership(supabase, to_column_id, user["id"])
+    
+    result = supabase.table("planning_cards").update({
+        "column_id": to_column_id,
+        "position": position,
+        "updated_at": datetime.utcnow().isoformat()
+    }).eq("id", card_id).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    return result.data[0]
+
+@router.put("/cards/reorder")
+def reorder_cards(column_id: str = Query(...), data: ReorderCardsRequest = Body(...), user=Depends(get_current_user)):
+    """Reorder cards in a column"""
+    supabase = get_db()
+    
+    # Verify ownership
+    verify_column_ownership(supabase, column_id, user["id"])
+    
+    # Update positions
+    for position, card_id in enumerate(data.card_ids):
+        supabase.table("planning_cards").update({
+            "position": position,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", card_id).execute()
+    
+    return {"message": "Cards reordered"}
+
 @router.put("/cards/{card_id}")
 def update_card(card_id: str, data: CardData, user=Depends(get_current_user)):
     """Update a card"""
@@ -257,43 +294,6 @@ def delete_card(card_id: str, user=Depends(get_current_user)):
     supabase.table("planning_cards").delete().eq("id", card_id).execute()
     
     return {"message": "Card deleted"}
-
-@router.put("/cards/move")
-def move_card(card_id: str, to_column_id: str, position: int, user=Depends(get_current_user)):
-    """Move a card to a different column or position"""
-    supabase = get_db()
-    
-    # Verify ownership
-    verify_card_ownership(supabase, card_id, user["id"])
-    verify_column_ownership(supabase, to_column_id, user["id"])
-    
-    result = supabase.table("planning_cards").update({
-        "column_id": to_column_id,
-        "position": position,
-        "updated_at": datetime.utcnow().isoformat()
-    }).eq("id", card_id).execute()
-    
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Card not found")
-    
-    return result.data[0]
-
-@router.put("/cards/reorder")
-def reorder_cards(column_id: str = Query(...), data: ReorderCardsRequest = Body(...), user=Depends(get_current_user)):
-    """Reorder cards in a column"""
-    supabase = get_db()
-    
-    # Verify ownership
-    verify_column_ownership(supabase, column_id, user["id"])
-    
-    # Update positions
-    for position, card_id in enumerate(data.card_ids):
-        supabase.table("planning_cards").update({
-            "position": position,
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("id", card_id).execute()
-    
-    return {"message": "Cards reordered"}
 
 # ==================== Helper Functions ====================
 
