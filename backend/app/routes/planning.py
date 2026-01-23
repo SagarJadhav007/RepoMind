@@ -128,6 +128,28 @@ def create_column(repo: str, data: ColumnData, user=Depends(get_current_user)):
     
     return result.data[0]
 
+@router.put("/columns/reorder")
+def reorder_columns(repo: str = Query(...), data: ReorderColumnsRequest = Body(...), user=Depends(get_current_user)):
+    """Reorder columns"""
+    supabase = get_db()
+    
+    # Get board and verify ownership
+    board_res = supabase.table("planning_boards").select("id").eq(
+        "user_id", user["id"]
+    ).eq("repo_full_name", repo).execute()
+    
+    if not board_res.data:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    # Update positions
+    for position, column_id in enumerate(data.column_ids):
+        supabase.table("planning_columns").update({
+            "position": position,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", column_id).execute()
+    
+    return {"message": "Columns reordered"}
+
 @router.put("/columns/{column_id}")
 def update_column(column_id: str, data: ColumnData, user=Depends(get_current_user)):
     """Update a column"""
@@ -159,28 +181,6 @@ def delete_column(column_id: str, user=Depends(get_current_user)):
     supabase.table("planning_columns").delete().eq("id", column_id).execute()
     
     return {"message": "Column deleted"}
-
-@router.put("/columns/reorder")
-def reorder_columns(repo: str = Query(...), data: ReorderColumnsRequest = Body(...), user=Depends(get_current_user)):
-    """Reorder columns"""
-    supabase = get_db()
-    
-    # Get board and verify ownership
-    board_res = supabase.table("planning_boards").select("id").eq(
-        "user_id", user["id"]
-    ).eq("repo_full_name", repo).execute()
-    
-    if not board_res.data:
-        raise HTTPException(status_code=404, detail="Board not found")
-    
-    # Update positions
-    for position, column_id in enumerate(data.column_ids):
-        supabase.table("planning_columns").update({
-            "position": position,
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("id", column_id).execute()
-    
-    return {"message": "Columns reordered"}
 
 # ==================== Card Routes ====================
 
