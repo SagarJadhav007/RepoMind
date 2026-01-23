@@ -1,7 +1,20 @@
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { KanbanBoard } from "@/components/planning/KanbanBoard";
+import { useParams } from "react-router-dom";
+import { useRepo } from "@/context/RepoContext";
+import { useEffect } from "react";
 
 export default function Planning() {
+  const { repo: urlRepo } = useParams<{ repo: string }>();
+  const { setRepo } = useRepo();
+
+  // Set repo from URL param when component mounts or URL changes
+  useEffect(() => {
+    if (urlRepo) {
+      setRepo(urlRepo);
+    }
+  }, [urlRepo, setRepo]);
+
   return (
     <WorkspaceLayout>
       <div className="flex flex-col h-full">

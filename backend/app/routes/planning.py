@@ -154,8 +154,12 @@ def delete_column(column_id: str, user=Depends(get_current_user)):
     
     return {"message": "Column deleted"}
 
+class ReorderRequest(BaseModel):
+    column_ids: List[str] = None
+    card_ids: List[str] = None
+
 @router.put("/columns/reorder")
-def reorder_columns(repo: str, column_ids: List[str], user=Depends(get_current_user)):
+def reorder_columns(repo: str, data: ReorderRequest, user=Depends(get_current_user)):
     """Reorder columns"""
     supabase = get_db()
     
@@ -168,7 +172,7 @@ def reorder_columns(repo: str, column_ids: List[str], user=Depends(get_current_u
         raise HTTPException(status_code=404, detail="Board not found")
     
     # Update positions
-    for position, column_id in enumerate(column_ids):
+    for position, column_id in enumerate(data.column_ids):
         supabase.table("planning_columns").update({
             "position": position,
             "updated_at": datetime.utcnow().isoformat()
@@ -273,7 +277,7 @@ def move_card(card_id: str, to_column_id: str, position: int, user=Depends(get_c
     return result.data[0]
 
 @router.put("/cards/reorder")
-def reorder_cards(column_id: str, card_ids: List[str], user=Depends(get_current_user)):
+def reorder_cards(column_id: str, data: ReorderRequest, user=Depends(get_current_user)):
     """Reorder cards in a column"""
     supabase = get_db()
     
@@ -281,7 +285,7 @@ def reorder_cards(column_id: str, card_ids: List[str], user=Depends(get_current_
     verify_column_ownership(supabase, column_id, user["id"])
     
     # Update positions
-    for position, card_id in enumerate(card_ids):
+    for position, card_id in enumerate(data.card_ids):
         supabase.table("planning_cards").update({
             "position": position,
             "updated_at": datetime.utcnow().isoformat()
