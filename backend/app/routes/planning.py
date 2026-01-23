@@ -19,9 +19,11 @@ class ColumnData(BaseModel):
     description: str
     color: str
 
-class ReorderRequest(BaseModel):
-    column_ids: Optional[List[str]] = None
-    card_ids: Optional[List[str]] = None
+class ReorderColumnsRequest(BaseModel):
+    column_ids: List[str]
+
+class ReorderCardsRequest(BaseModel):
+    card_ids: List[str]
 
 class ColumnWithCards(BaseModel):
     id: str
@@ -159,7 +161,7 @@ def delete_column(column_id: str, user=Depends(get_current_user)):
     return {"message": "Column deleted"}
 
 @router.put("/columns/reorder")
-def reorder_columns(repo: str = Query(...), data: ReorderRequest = Body(...), user=Depends(get_current_user)):
+def reorder_columns(repo: str = Query(...), data: ReorderColumnsRequest = Body(...), user=Depends(get_current_user)):
     """Reorder columns"""
     supabase = get_db()
     
@@ -277,7 +279,7 @@ def move_card(card_id: str, to_column_id: str, position: int, user=Depends(get_c
     return result.data[0]
 
 @router.put("/cards/reorder")
-def reorder_cards(column_id: str = Query(...), data: ReorderRequest = Body(...), user=Depends(get_current_user)):
+def reorder_cards(column_id: str = Query(...), data: ReorderCardsRequest = Body(...), user=Depends(get_current_user)):
     """Reorder cards in a column"""
     supabase = get_db()
     
