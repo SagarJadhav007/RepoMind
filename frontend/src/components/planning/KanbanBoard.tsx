@@ -412,8 +412,28 @@ export function KanbanBoard() {
         description: "Failed to save changes",
         variant: "destructive",
       });
-      // Reload to sync state
-      location.reload();
+      // Reload board to sync state with server
+      if (repo) {
+        try {
+          const board = await planningApi.getBoard(repo);
+          const loadedColumns: PlanningColumnType[] = board.columns.map((col) => ({
+            id: col.id,
+            title: col.title,
+            description: col.description,
+            color: col.color,
+            cards: col.cards.map((card) => ({
+              id: card.id,
+              title: card.title,
+              description: card.description,
+              linkedPR: card.linkedPR,
+              linkedIssue: card.linkedIssue,
+            })),
+          }));
+          setColumns(loadedColumns);
+        } catch (reloadError) {
+          console.error("Failed to reload board:", reloadError);
+        }
+      }
     } finally {
       setSaving(false);
     }

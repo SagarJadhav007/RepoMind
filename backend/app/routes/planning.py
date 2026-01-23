@@ -19,6 +19,10 @@ class ColumnData(BaseModel):
     description: str
     color: str
 
+class ReorderRequest(BaseModel):
+    column_ids: Optional[List[str]] = None
+    card_ids: Optional[List[str]] = None
+
 class ColumnWithCards(BaseModel):
     id: str
     title: str
@@ -153,10 +157,6 @@ def delete_column(column_id: str, user=Depends(get_current_user)):
     supabase.table("planning_columns").delete().eq("id", column_id).execute()
     
     return {"message": "Column deleted"}
-
-class ReorderRequest(BaseModel):
-    column_ids: List[str] = None
-    card_ids: List[str] = None
 
 @router.put("/columns/reorder")
 def reorder_columns(repo: str, data: ReorderRequest, user=Depends(get_current_user)):
