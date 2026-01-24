@@ -10,6 +10,7 @@ from app.routes.contributor import router as contributor_router
 from app.routes.brain import router as brain_router
 from app.routes.planning import router as planning_router
 from app.redis_client import redis_client
+from app.routes.memory import router as memory_router
 
 app = FastAPI()
 
@@ -36,4 +37,5 @@ app.include_router(user_router)
 app.include_router(repo_files_router)
 app.include_router(contributor_router)
 app.include_router(brain_router, prefix="/chat", tags=["chat"])
+app.include_router(memory_router, tags=["memory"])
 app.include_router(planning_router)
