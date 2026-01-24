@@ -1,32 +1,38 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from app.auth.supabase import get_current_user
 from app.brain.schema import BrainRequest, ChatRequest
 from app.brain.task import TaskType
 from app.brain.roles import Role
 from app.brain.agent_router import AgentRouter
-import asyncio
 
-router = APIRouter(prefix="/chat")
+router = APIRouter()
 
 agent_router = AgentRouter()
+
+class ChatPayload(BaseModel):
+    message: str
 
 @router.post("")
 async def chat(
     repo_full_name: str = Query(...),
-    chat_req: ChatRequest = None,
+    payload: ChatPayload = None,
     user=Depends(get_current_user),
 ):
     """
     Handle chat requests using the QueryAnsweringAgent
     """
     try:
+        if not payload or not payload.message:
+            raise HTTPException(status_code=400, detail="Message is required")
+        
         # Create BrainRequest
         brain_req = BrainRequest(
             user_id=user["id"],
             repo_full_name=repo_full_name,
             role=Role.USER,
             task_type=TaskType.CHAT,
-            payload={"message": chat_req.message}
+            payload={"message": payload.message}
         )
         
         # Route to appropriate agent
@@ -36,6 +42,8 @@ async def chat(
         
     except Exception as e:
         print(f"Chat error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -43,20 +51,23 @@ async def chat(
 async def review_pr(
     repo_full_name: str = Query(...),
     pr_number: int = Query(...),
-    diff: str = Query(...),
+    payload: dict = None,
     user=Depends(get_current_user),
 ):
     """
     Handle PR review requests using the PRReviewAgent
     """
     try:
+        if not payload or "diff" not in payload:
+            raise HTTPException(status_code=400, detail="Diff is required")
+        
         brain_req = BrainRequest(
             user_id=user["id"],
             repo_full_name=repo_full_name,
             role=Role.MAINTAINER,
             task_type=TaskType.PR_REVIEW,
             source_id=str(pr_number),
-            payload={"diff": diff, "pr_number": pr_number}
+            payload={"diff": payload["diff"], "pr_number": pr_number}
         )
         
         result = await agent_router.route(brain_req)
@@ -65,4 +76,6 @@ async def review_pr(
         
     except Exception as e:
         print(f"PR review error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

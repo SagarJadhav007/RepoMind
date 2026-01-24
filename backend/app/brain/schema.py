@@ -1,15 +1,15 @@
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
-from .roles import Role
-from .task import TaskType
+from app.brain.roles import Role
+from app.brain.task import TaskType
 
 class BrainRequest(BaseModel):
     user_id: str
     repo_full_name: str
     role: Role
     task_type: TaskType
-    source_id: Optional[str] = None  # PR number, issue id
-    payload: Dict[str, Any]          # diff, issue text, chat msg
+    source_id: Optional[str] = None
+    payload: Dict[str, Any]
 
 class BrainResponse(BaseModel):
     task_type: TaskType

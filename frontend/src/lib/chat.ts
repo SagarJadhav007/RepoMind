@@ -1,9 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-export async function sendChatMessage(
-  repoFullName: string,
-  message: string
-) {
+export async function sendChatMessage(repoFullName: string, message: string) {
   const { data, error } = await supabase.auth.getSession();
 
   if (error || !data.session) {
@@ -12,7 +9,7 @@ export async function sendChatMessage(
 
   const token = data.session.access_token;
 
-  console.log("CHAT TOKEN:", token); 
+  console.log("CHAT TOKEN:", token);
 
   const res = await fetch(
     `https://repomind-577n.onrender.com/chat?repo_full_name=${encodeURIComponent(repoFullName)}`,
@@ -23,7 +20,7 @@ export async function sendChatMessage(
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ message }),
-    }
+    },
   );
 
   if (!res.ok) {

@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.routes.github import router as github_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.manager import router as manager_router
@@ -8,7 +7,7 @@ from app.routes.auth import router as auth_router
 from app.routes.user import router as user_router
 from app.routes.repo_files import router as repo_files_router
 from app.routes.contributor import router as contributor_router
-from app.routes.brain import router as chat_router
+from app.routes.brain import router as brain_router
 from app.routes.planning import router as planning_router
 from app.redis_client import redis_client
 
@@ -36,5 +35,5 @@ app.include_router(manager_router)
 app.include_router(user_router)
 app.include_router(repo_files_router)
 app.include_router(contributor_router)
-app.include_router(chat_router, prefix="/chat", tags=["brain"])
+app.include_router(brain_router, prefix="/chat", tags=["chat"])
 app.include_router(planning_router)
