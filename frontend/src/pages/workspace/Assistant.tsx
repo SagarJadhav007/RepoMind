@@ -20,6 +20,7 @@ type AssistantResponse = {
   answer: string;
   confidence?: "high" | "medium" | "low";
   sources?: Source[];
+  reasoning?: string;  // Add this
 };
 
 type Message = {
@@ -28,6 +29,7 @@ type Message = {
   content: string;
   confidence?: "high" | "medium" | "low";
   sources?: Source[];
+  reasoning?: string;  // Add this
 };
 
 /* ---------------- Constants ---------------- */

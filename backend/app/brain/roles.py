@@ -1,6 +1,6 @@
 from enum import Enum
 
 class Role(str, Enum):
-    CONTRIBUTOR = "contributor"
+    USER = "user"
     MAINTAINER = "maintainer"
-    SYSTEM = "system"
+    CONTRIBUTOR = "contributor"
