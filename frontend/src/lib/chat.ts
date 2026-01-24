@@ -3,10 +3,7 @@ import { supabase } from "@/lib/supabase";
 export interface AssistantResponse {
   answer: string;
   confidence?: "high" | "medium" | "low";
-  sources?: Array<{
-    file: string;
-    snippet?: string;
-  }>;
+  sources?: string[]; // Changed: now just file names
   reasoning?: string;
 }
 

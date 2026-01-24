@@ -6,6 +6,7 @@ import { ChatContainer } from "@/components/chat/ChatContainer";
 import { SuggestedQuestions } from "@/components/chat/SuggestedQuestions";
 import { sendChatMessage } from "@/lib/chat";
 import { getConversationHistory, clearConversation, exportConversation } from "@/lib/memory";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Download, Trash2 } from "lucide-react";
 
@@ -28,7 +29,7 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   confidence?: "high" | "medium" | "low";
-  sources?: Source[];
+  sources?: string[];  // Changed: now just file names
   reasoning?: string;
 };
 
@@ -44,9 +45,19 @@ const SUGGESTED_QUESTIONS = [
 /* ============ Component ============ */
 
 export default function Assistant() {
-  const { owner, repo } = useParams<{ owner: string; repo: string }>();
-  const repoFullName = `${owner}/${repo}`;
+  const { repo } = useParams<{ repo: string }>();
 
+  if (!repo) {
+    return (
+      <WorkspaceLayout>
+        <div className="p-6 text-red-400">
+          Invalid repository identifier.
+        </div>
+      </WorkspaceLayout>
+    );
+  }
+
+  const repoFullName = repo;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -102,7 +113,22 @@ export default function Assistant() {
     setError(null);
 
     try {
-      const res: AssistantResponse = await sendChatMessage(repoFullName, message);
+      const res = await sendChatMessage(repoFullName, message);
+
+      // Map sources to string[] if necessary
+      let sources: string[] = [];
+      if (Array.isArray(res.sources) && res.sources.length > 0) {
+        // If sources are array of objects, map to file names
+        if (
+          res.sources[0] != null &&
+          typeof res.sources[0] === "object" &&
+          "file" in res.sources[0]
+        ) {
+          sources = res.sources.map((s: any) => s.file);
+        } else {
+          sources = res.sources as string[];
+        }
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -111,7 +137,7 @@ export default function Assistant() {
           role: "assistant",
           content: res.answer || "I couldn't generate a response. Please try again.",
           confidence: res.confidence,
-          sources: res.sources || [],
+          sources,
           reasoning: res.reasoning,
         },
       ]);
@@ -134,35 +160,49 @@ export default function Assistant() {
   }
 
   async function handleSyncRepo() {
-    setSyncing(true);
-    setError(null);
+  setSyncing(true);
+  setError(null);
 
-    try {
-      const response = await fetch(
-        `/api/repos/sync?repo=${encodeURIComponent(repoFullName)}`,
-        { method: "POST" }
-      );
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-      if (!response.ok) {
-        throw new Error("Failed to sync repository");
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: nanoid(),
-          role: "assistant",
-          content: `Repository ${repoFullName} has been synced successfully! ✨`,
-          confidence: "high",
-        },
-      ]);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Sync failed";
-      setError(errorMessage);
-    } finally {
-      setSyncing(false);
+    if (!session) {
+      throw new Error("User not authenticated");
     }
+
+    const response = await fetch(
+      `https://repomind-577n.onrender.com/repos/${encodeURIComponent(repoFullName)}/files/sync`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to sync repository");
+    }
+
+    setMessages((prev) => [
+  ...prev,
+  {
+    id: nanoid(),
+    role: "assistant",
+    content: "Repository synced successfully!",
+    confidence: "high",
+  },
+]);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Sync failed";
+    setError(errorMessage);
+  } finally {
+    setSyncing(false);
   }
+}
+
 
   async function handleClearConversation() {
     if (
@@ -281,7 +321,13 @@ export default function Assistant() {
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col">
               <ChatContainer
-                messages={messages}
+                messages={messages.map((msg) => ({
+                  ...msg,
+                  sources:
+                    msg.sources && Array.isArray(msg.sources)
+                      ? msg.sources.map((file) => ({ file }))
+                      : undefined,
+                }))}
                 loading={loading}
                 onSendMessage={handleSendMessage}
                 placeholder="Ask a question about this repository..."
@@ -294,7 +340,13 @@ export default function Assistant() {
             </div>
           ) : (
             <ChatContainer
-              messages={messages}
+              messages={messages.map((msg) => ({
+                ...msg,
+                sources:
+                  msg.sources && Array.isArray(msg.sources)
+                    ? msg.sources.map((file) => ({ file }))
+                    : undefined,
+              }))}
               loading={loading}
               onSendMessage={handleSendMessage}
               placeholder="Ask a follow-up question..."

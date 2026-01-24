@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from app.auth.supabase import get_current_user
-from app.brain.schema import BrainRequest, ChatRequest
+from app.brain.schema import BrainRequest
 from app.brain.task import TaskType
 from app.brain.roles import Role
 from app.brain.agent_router import AgentRouter
@@ -15,12 +15,13 @@ class ChatPayload(BaseModel):
 
 @router.post("")
 async def chat(
+    payload: ChatPayload,
     repo_full_name: str = Query(...),
-    payload: ChatPayload = None,
     user=Depends(get_current_user),
 ):
     """
     Handle chat requests using the QueryAnsweringAgent
+    Returns natural text response with file name sources only
     """
     try:
         if not payload or not payload.message:
@@ -38,7 +39,15 @@ async def chat(
         # Route to appropriate agent
         result = await agent_router.route(brain_req)
         
-        return result
+        # Ensure response is not JSON-wrapped
+        response = {
+            "answer": result.get("answer", result.get("text", "")),
+            "sources": result.get("sources", []),
+            "confidence": result.get("confidence", "medium"),
+            "reasoning": result.get("reasoning", "")
+        }
+        
+        return response
         
     except Exception as e:
         print(f"Chat error: {e}")
@@ -49,9 +58,9 @@ async def chat(
 
 @router.post("/pr-review")
 async def review_pr(
+    payload: dict,
     repo_full_name: str = Query(...),
     pr_number: int = Query(...),
-    payload: dict = None,
     user=Depends(get_current_user),
 ):
     """

@@ -299,9 +299,7 @@ class QueryAnsweringAgent:
     ) -> dict:
         """Use LLM to synthesize final answer from context"""
         
-        context_blocks = []
-        sources = []
-        
+        sources_list = []
         results = context.get("results", [])
         
         if not results:
@@ -312,72 +310,64 @@ class QueryAnsweringAgent:
                 "reasoning": "No relevant code context found in repository"
             }
         
-        for match in results[:6]:
-            content = match.get('content', '')[:500]
+        # Prepare code snippets for context (limited number)
+        code_snippets = {}
+        for idx, match in enumerate(results[:4]):  # Limit to 4 most relevant
             path = match.get('path', 'unknown')
-            
-            context_blocks.append(f"""
-FILE: {path}
-CONTENT:
-{content}
-""".strip())
-            sources.append({
-                "file": path,
-                "snippet": match.get('content', '')[:200]
-            })
+            content = match.get('content', '')[:400]
+            code_snippets[path] = content
+            sources_list.append(path)  # Only file names in sources
+        
+        # Build context with code snippets embedded
+        context_text = "Here is the relevant code from the repository:\n\n"
+        for path, content in code_snippets.items():
+            context_text += f"**{path}:**\n```\n{content}\n```\n\n"
         
         memory_hint = ""
         if conversation_history:
-            memory_hint = f"""
-CONVERSATION HISTORY:
-{conversation_history}
-
-Use this context to provide better answers and avoid repeating information already discussed."""
+            memory_hint = f"\n\nPrevious conversation context:\n{conversation_history}"
         
-        prompt = f"""You are a GitHub repository expert assistant for the repository: {repo_name}
+        prompt = f"""You are a GitHub repository expert assistant for: {repo_name}
 
 USER QUESTION:
 {message}
 
-INTENT: {intent}
+{context_text}
 
 {memory_hint}
 
-RETRIEVED CODE CONTEXT FROM {repo_name}:
-{chr(10).join(context_blocks)}
-
 INSTRUCTIONS:
-1. Answer DIRECTLY addressing the user's question about {repo_name}
-2. Use ONLY the provided code context from {repo_name}
-3. Be specific to this repository
-4. If this is a follow-up, reference the previous context naturally
-5. Avoid repeating information already discussed
-6. Explain in simple terms with code examples
-7. If context is insufficient, say "I couldn't find enough information"
-8. Be concise but thorough
+1. Answer the question directly and naturally (NOT as JSON)
+2. Explain clearly using the code context provided
+3. Only reference code files when necessary to explain your answer
+4. Be concise but thorough
+5. Use natural language, NOT JSON format
+6. If code examples help explain, mention them naturally like: "In script1.js, the checkWinner() function iterates through..."
+7. Avoid repeating information already discussed
 
-Return JSON:
-{{
-  "text": "Your answer here",
-  "confidence": "high|medium|low",
-  "reasoning": "Why this confidence level"
-}}
-"""
+Answer the question directly:"""
         
         response = self.llm.generate(prompt)
         
-        try:
-            result = json.loads(response)
-        except:
-            result = {
-                "text": response,
-                "confidence": "medium",
-                "reasoning": "Direct LLM response"
-            }
+        # Clean up response - remove any JSON wrapper if present
+        text = response.strip()
+        
+        # If response starts with { or "text", it's still JSON - extract the text
+        if text.startswith("{"):
+            try:
+                parsed = json.loads(text)
+                text = parsed.get("text", text)
+            except:
+                pass
+        
+        # Remove markdown code blocks if they got included
+        text = re.sub(r"```json\n", "", text)
+        text = re.sub(r"```\n", "", text)
+        text = re.sub(r"```", "", text)
         
         return {
-            "text": result.get("text", ""),
-            "sources": sources,
-            "confidence": result.get("confidence", "medium"),
-            "reasoning": result.get("reasoning", "")
+            "text": text,
+            "sources": list(set(sources_list)),  # Unique source files only
+            "confidence": "high" if len(results) >= 3 else "medium",
+            "reasoning": f"Answer based on {len(results)} relevant code files"
         }
