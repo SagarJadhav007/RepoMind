@@ -1,43 +1,52 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Plus, Tag, CheckCircle2 } from "lucide-react";
+import { IssueTable } from "@/components/manage/IssueTable";
+import { PRTable } from "@/components/manage/PRTable";
+import { TagModal } from "@/components/manage/TagModal";
+import { IssueForm } from "@/components/manage/IssueForm";
+
 import { supabase } from "@/lib/supabase";
 
-import {
-  GitPullRequest,
-  CircleDot,
-  MessageSquare,
-} from "lucide-react";
+/* ---------- TYPES ---------- */
 
-/* ---------------- TYPES ---------------- */
+type Issue = {
+  id: number;
+  title: string;
+  labels: string[];
+  comments: number;
+  assignees?: string[];
+};
 
 type PR = {
   id: number;
   title: string;
   author: string;
-  created_at: string;
   labels: string[];
+  files_changed?: number;
+  risk?: "low" | "medium" | "high";
 };
 
-type Issue = {
-  id: number;
-  title: string;
-  created_at: string;
-  labels: string[];
-  comments: number;
-};
-
-/* ---------------- COMPONENT ---------------- */
+/* ---------- COMPONENT ---------- */
 
 export default function Manage() {
   const { repo: encodedRepo } = useParams<{ repo: string }>();
   const repo = encodedRepo ? decodeURIComponent(encodedRepo) : null;
 
-  const [prs, setPrs] = useState<PR[]>([]);
+  const [view, setView] = useState<"issues" | "prs">("issues");
   const [issues, setIssues] = useState<Issue[]>([]);
+  const [prs, setPrs] = useState<PR[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [selectedIssues, setSelectedIssues] = useState<number[]>([]);
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  /* ---------- FETCH DATA ---------- */
 
   useEffect(() => {
     if (!repo) return;
@@ -52,30 +61,26 @@ export default function Manage() {
           Authorization: `Bearer ${data.session.access_token}`,
         };
 
-        const [prRes, issueRes] = await Promise.all([
+        const [issueRes, prRes] = await Promise.all([
           fetch(
-            `https://repomind-577n.onrender.com/manager/pull-requests?repo=${encodeURIComponent(
-              repo
-            )}`,
+            `https://repomind-577n.onrender.com/manager/issues?repo=${encodeURIComponent(repo)}`,
             { headers }
           ),
           fetch(
-            `https://repomind-577n.onrender.com/manager/issues?repo=${encodeURIComponent(
-              repo
-            )}`,
+            `https://repomind-577n.onrender.com/manager/pull-requests?repo=${encodeURIComponent(repo)}`,
             { headers }
           ),
         ]);
 
-        const prJson = await prRes.json();
         const issueJson = await issueRes.json();
+        const prJson = await prRes.json();
 
-        setPrs(prJson.pull_requests ?? []);
         setIssues(issueJson.issues ?? []);
+        setPrs(prJson.pull_requests ?? []);
       } catch (err) {
         console.error("Manager fetch failed", err);
-        setPrs([]);
         setIssues([]);
+        setPrs([]);
       } finally {
         setLoading(false);
       }
@@ -84,14 +89,44 @@ export default function Manage() {
     loadManagerData();
   }, [repo]);
 
-  /* ---------------- STATES ---------------- */
+  /* ---------- HELPERS ---------- */
+
+  const toggleSelect = (id: number) => {
+    setSelectedIssues((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const refreshIssues = async () => {
+    if (!repo) return;
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
+
+      const headers = {
+        Authorization: `Bearer ${data.session.access_token}`,
+      };
+
+      const issueRes = await fetch(
+        `https://repomind-577n.onrender.com/manager/issues?repo=${encodeURIComponent(repo)}`,
+        { headers }
+      );
+
+      const issueJson = await issueRes.json();
+      setIssues(issueJson.issues ?? []);
+      setSelectedIssues([]);
+    } catch (err) {
+      console.error("Failed to refresh issues", err);
+    }
+  };
+
+  /* ---------- STATES ---------- */
 
   if (!repo) {
     return (
       <WorkspaceLayout>
-        <div className="p-6 text-muted-foreground">
-          Invalid repository
-        </div>
+        <div className="p-6 text-muted-foreground">Invalid repository</div>
       </WorkspaceLayout>
     );
   }
@@ -104,116 +139,117 @@ export default function Manage() {
     );
   }
 
-  /* ---------------- UI ---------------- */
+  /* ---------- UI ---------- */
 
   return (
     <WorkspaceLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Manager Console</h1>
-          <p className="text-muted-foreground">
-            Review pull requests and issues
-          </p>
-        </div>
-
-        {/* ================= ISSUES ================= */}
-        <div className="rounded-lg border bg-card h-[500px] flex flex-col">
-          <div className="border-b px-6 py-4 flex items-center gap-2">
-            <CircleDot className="h-5 w-5 text-warning" />
-            <h2 className="font-semibold">Issues</h2>
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        {/* Header */}
+        <header className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Manager Console
+            </h1>
+            <p className="text-muted-foreground text-sm font-mono">
+              {repo}
+            </p>
           </div>
 
-          {/* Scrollable content */}
-          <div className="relative flex-1 px-6 py-4 overflow-y-auto scrollbar-hide">
-            <div className="absolute left-3 top-0 h-full w-px bg-border" />
+        </header>
 
-            {issues.length === 0 && (
+        {/* Content */}
+        <div className="mt-10 space-y-6">
+
+          {/* Controls Row */}
+          <div className="flex items-center justify-between">
+            <Tabs value={view} onValueChange={(v) => setView(v as any)}>
+              <TabsList>
+                <TabsTrigger value="issues">Issues</TabsTrigger>
+                <TabsTrigger value="prs">Pull Requests</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {view === "issues" && (
+              <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button size="sm" className="gap-2">
+                    <Plus className="h-4 w-4" /> New Issue
+                  </Button>
+                </SheetTrigger>
+                <IssueForm
+                  onSuccess={() => {
+                    refreshIssues();
+                    setIsSheetOpen(false);
+                  }}
+                  onClose={() => setIsSheetOpen(false)}
+                />
+              </Sheet>
+            )}
+          </div>
+
+          {/* Table */}
+          {view === "issues" ? (
+            issues.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No open issues
               </p>
-            )}
-
-            <div className="space-y-6">
-              {issues.map((issue) => (
-                <div key={issue.id} className="relative flex gap-6">
-                  <div className="relative z-10 h-3 w-3 rounded-full bg-warning mt-1" />
-
-                  <div className="flex-1">
-                    <p className="font-medium">
-                      #{issue.id} {issue.title}
-                    </p>
-
-                    <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                      <MessageSquare className="h-4 w-4" />
-                      {issue.comments} comments
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {issue.labels.map((l) => (
-                        <Badge
-                          key={l}
-                          variant="outline"
-                          className={cn(
-                            "text-xs",
-                            l === "high-impact" &&
-                              "bg-destructive/10 text-destructive border-destructive/20"
-                          )}
-                        >
-                          {l}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+            ) : (
+              <IssueTable
+                issues={issues}
+                selected={selectedIssues}
+                onToggle={toggleSelect}
+              />
+            )
+          ) : prs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No open pull requests
+            </p>
+          ) : (
+            <PRTable
+              prs={prs.map((pr) => ({
+                id: pr.id,
+                title: pr.title,
+                author: pr.author,
+                risk: pr.risk ?? "medium",
+                filesChanged: pr.files_changed ?? 0,
+              }))}
+            />
+          )}
         </div>
 
-        {/* ================= PULL REQUESTS ================= */}
-        <div className="rounded-lg border bg-card h-[500px] flex flex-col">
-          <div className="border-b px-6 py-4 flex items-center gap-2">
-            <GitPullRequest className="h-5 w-5 text-accent" />
-            <h2 className="font-semibold">Pull Requests</h2>
+
+        {/* Bulk Action Bar */}
+        {selectedIssues.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-zinc-900 text-white px-5 py-3 rounded-full shadow-2xl animate-in fade-in slide-in-from-bottom-4">
+            <span className="text-sm font-medium">
+              {selectedIssues.length} Selected
+            </span>
+            <div className="w-px h-4 bg-zinc-700" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsTagModalOpen(true)}
+              className="text-white hover:bg-zinc-800 gap-2"
+            >
+              <Tag className="h-4 w-4" /> Tag
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-400 hover:bg-red-950/30 gap-2"
+            >
+              <CheckCircle2 className="h-4 w-4" /> Close
+            </Button>
           </div>
+        )}
 
-          {/* Scrollable content */}
-          <div className="relative flex-1 px-6 py-4 overflow-y-auto scrollbar-hide">
-            <div className="absolute left-3 top-0 h-full w-px bg-border" />
-
-            {prs.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No open pull requests
-              </p>
-            )}
-
-            <div className="space-y-6">
-              {prs.map((pr) => (
-                <div key={pr.id} className="relative flex gap-6">
-                  <div className="relative z-10 h-3 w-3 rounded-full bg-accent mt-1" />
-
-                  <div className="flex-1">
-                    <p className="font-medium">
-                      #{pr.id} {pr.title}
-                    </p>
-
-                    <p className="text-sm text-muted-foreground">
-                      by @{pr.author}
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {pr.labels.map((l) => (
-                        <Badge key={l} variant="outline" className="text-xs">
-                          {l}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <TagModal
+          isOpen={isTagModalOpen}
+          onClose={() => setIsTagModalOpen(false)}
+          selectionCount={selectedIssues.length}
+          selectedIssueIds={selectedIssues}
+          onSuccess={refreshIssues}
+        />
       </div>
     </WorkspaceLayout>
   );

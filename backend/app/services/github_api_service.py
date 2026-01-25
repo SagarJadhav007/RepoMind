@@ -402,3 +402,73 @@ def get_manager_open_issues(token: str, owner: str, repo: str):
         "url": issue["html_url"],
     } for issue in issues]
 
+
+# -------------------------------------------------
+# Create Issue
+# -------------------------------------------------
+def create_github_issue(
+    token: str,
+    owner: str,
+    repo: str,
+    title: str,
+    description: str,
+    labels: list[str] | None = None,
+    assignees: list[str] | None = None,
+):
+    """Create a new issue in the repository"""
+    url = f"{BASE_URL}/repos/{owner}/{repo}/issues"
+    
+    payload = {
+        "title": title,
+        "body": description,
+        "labels": labels or [],
+        "assignees": assignees or [],
+    }
+    
+    try:
+        r = requests.post(
+            url,
+            json=payload,
+            headers=_headers(token),
+            timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+        
+        return {
+            "id": data["number"],
+            "title": data["title"],
+            "created_at": data["created_at"],
+            "url": data["html_url"],
+        }
+    except requests.RequestException as e:
+        raise HTTPException(400, f"Failed to create issue: {str(e)}")
+
+
+# -------------------------------------------------
+# Add Labels to Issue
+# -------------------------------------------------
+def add_labels_to_issue(
+    token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+    labels: list[str],
+):
+    """Add labels to an existing issue"""
+    url = f"{BASE_URL}/repos/{owner}/{repo}/issues/{issue_number}/labels"
+    
+    payload = {"labels": labels}
+    
+    try:
+        r = requests.post(
+            url,
+            json=payload,
+            headers=_headers(token),
+            timeout=10,
+        )
+        r.raise_for_status()
+        return {"success": True, "labels": labels}
+    except requests.RequestException as e:
+        raise HTTPException(400, f"Failed to add labels: {str(e)}")
+

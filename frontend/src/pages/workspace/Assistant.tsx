@@ -122,7 +122,7 @@ export default function Assistant() {
         if (
           res.sources[0] != null &&
           typeof res.sources[0] === "object" &&
-          "file" in res.sources[0]
+          "file" in res.sources[0] 
         ) {
           sources = res.sources.map((s: any) => s.file);
         } else {
