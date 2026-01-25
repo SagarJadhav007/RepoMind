@@ -108,16 +108,16 @@ export function IssueForm({ onSuccess, onClose }: Props) {
     };
 
     return (
-        <SheetContent className="sm:max-w-[480px] w-full">
-            <SheetHeader className="space-y-1">
+        <SheetContent side="right" className="sm:max-w-[480px] w-full flex flex-col p-0">
+            <SheetHeader className="px-6 pt-6 pb-4 border-b space-y-1">
                 <SheetTitle className="text-xl">Create New Issue</SheetTitle>
                 <SheetDescription>
                     Fill in the details below to track a new task or bug.
                 </SheetDescription>
             </SheetHeader>
 
-            <form onSubmit={handleSubmit} className="flex flex-col h-full">
-                <div className="grid gap-6 py-8 flex-1 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <div className="grid gap-6 py-6 px-6 flex-1 overflow-y-auto">
                     {error && (
                         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                             {error}
@@ -209,14 +209,14 @@ export function IssueForm({ onSuccess, onClose }: Props) {
                     </div>
                 </div>
 
-                <div className="bg-muted/50 p-4 rounded-lg flex gap-3 mb-6">
+                <div className="bg-muted/50 px-6 py-3 flex gap-3 border-t">
                     <Info className="h-5 w-5 text-blue-500 shrink-0" />
                     <p className="text-xs text-muted-foreground leading-relaxed">
                         Issues created here will be synced with your repository and visible to all contributors.
                     </p>
                 </div>
 
-                <SheetFooter className="flex-row gap-2 sm:justify-end">
+                <SheetFooter className="px-6 py-4 border-t flex-row gap-2 sm:justify-end">
                     <Button
                         variant="ghost"
                         type="button"

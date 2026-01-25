@@ -3,12 +3,13 @@ import { useParams } from "react-router-dom";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import { Plus, Tag, CheckCircle2 } from "lucide-react";
 import { IssueTable } from "@/components/manage/IssueTable";
 import { PRTable } from "@/components/manage/PRTable";
 import { TagModal } from "@/components/manage/TagModal";
 import { IssueForm } from "@/components/manage/IssueForm";
+import { EditIssuePanel } from "@/components/manage/EditIssuePanel";
 
 import { supabase } from "@/lib/supabase";
 
@@ -45,6 +46,9 @@ export default function Manage() {
   const [selectedIssues, setSelectedIssues] = useState<number[]>([]);
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [editingIssueId, setEditingIssueId] = useState<number | null>(null);
+
+  const editingIssue = issues.find((i) => i.id === editingIssueId) || null;
 
   /* ---------- FETCH DATA ---------- */
 
@@ -198,6 +202,7 @@ export default function Manage() {
                 issues={issues}
                 selected={selectedIssues}
                 onToggle={toggleSelect}
+                onRowClick={(issueId) => setEditingIssueId(issueId)}
               />
             )
           ) : prs.length === 0 ? (
@@ -248,6 +253,13 @@ export default function Manage() {
           onClose={() => setIsTagModalOpen(false)}
           selectionCount={selectedIssues.length}
           selectedIssueIds={selectedIssues}
+          onSuccess={refreshIssues}
+        />
+
+        <EditIssuePanel
+          isOpen={editingIssueId !== null}
+          onClose={() => setEditingIssueId(null)}
+          issue={editingIssue}
           onSuccess={refreshIssues}
         />
       </div>

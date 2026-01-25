@@ -149,3 +149,58 @@ def batch_tag_issues(
             results.append({"issue_id": issue_id, "success": False, "error": str(e)})
 
     return {"success": True, "results": results, "tags_applied": payload.tags}
+
+
+# -------------------------------------------------
+# Delete Issue
+# -------------------------------------------------
+@router.delete("/issues/{issue_id}")
+def delete_issue(
+    issue_id: int,
+    repo: str = Query(...),
+    user=Depends(get_current_user),
+):
+    token, owner, repo_name = _get_repo_and_token(user["id"], repo)
+
+    try:
+        import requests
+        url = f"https://api.github.com/repos/{owner}/{repo_name}/issues/{issue_id}"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        }
+        
+        r = requests.delete(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        
+        return {"success": True, "issue_id": issue_id}
+    except Exception as e:
+        raise HTTPException(400, f"Failed to delete issue: {str(e)}")
+
+
+# -------------------------------------------------
+# Close Issue
+# -------------------------------------------------
+@router.patch("/issues/{issue_id}/close")
+def close_issue(
+    issue_id: int,
+    repo: str = Query(...),
+    user=Depends(get_current_user),
+):
+    token, owner, repo_name = _get_repo_and_token(user["id"], repo)
+
+    try:
+        import requests
+        url = f"https://api.github.com/repos/{owner}/{repo_name}/issues/{issue_id}"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        }
+        
+        payload = {"state": "closed"}
+        r = requests.patch(url, json=payload, headers=headers, timeout=10)
+        r.raise_for_status()
+        
+        return {"success": True, "issue_id": issue_id, "state": "closed"}
+    except Exception as e:
+        raise HTTPException(400, f"Failed to close issue: {str(e)}")
