@@ -152,7 +152,7 @@ def batch_tag_issues(
 
 
 # -------------------------------------------------
-# Delete Issue
+# Delete Issue (using GraphQL)
 # -------------------------------------------------
 @router.delete("/issues/{issue_id}")
 def delete_issue(
@@ -164,14 +164,48 @@ def delete_issue(
 
     try:
         import requests
+        
+        # First, get the issue node ID using REST API
         url = f"https://api.github.com/repos/{owner}/{repo_name}/issues/{issue_id}"
         headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
         }
         
-        r = requests.delete(url, headers=headers, timeout=10)
+        r = requests.get(url, headers=headers, timeout=10)
         r.raise_for_status()
+        issue_data = r.json()
+        node_id = issue_data.get("node_id")
+        
+        if not node_id:
+            raise Exception("Could not get issue node ID")
+        
+        # Use GraphQL to delete the issue
+        graphql_url = "https://api.github.com/graphql"
+        mutation = """
+        mutation DeleteIssue($id: ID!) {
+            deleteIssue(input: {issueId: $id}) {
+                clientMutationId
+            }
+        }
+        """
+        
+        graphql_headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        
+        payload = {
+            "query": mutation,
+            "variables": {"id": node_id}
+        }
+        
+        r = requests.post(graphql_url, json=payload, headers=graphql_headers, timeout=10)
+        r.raise_for_status()
+        result = r.json()
+        
+        if "errors" in result:
+            raise Exception(result["errors"][0]["message"])
         
         return {"success": True, "issue_id": issue_id}
     except Exception as e:

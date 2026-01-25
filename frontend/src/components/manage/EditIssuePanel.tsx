@@ -19,7 +19,7 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Info, Trash2, Lock, Loader2 } from "lucide-react";
+import { Info, Trash2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Issue = {
@@ -56,7 +56,7 @@ export function EditIssuePanel({ isOpen, onClose, issue, onSuccess }: EditIssueP
     const handleDelete = async () => {
         if (!issue || !repo) return;
 
-        if (!window.confirm("Are you sure you want to delete this issue?")) {
+        if (!window.confirm("Are you sure you want to delete this issue? This action cannot be undone.")) {
             return;
         }
 
@@ -228,8 +228,8 @@ export function EditIssuePanel({ isOpen, onClose, issue, onSuccess }: EditIssueP
                             disabled={loading}
                             className="gap-2"
                         >
-                            <Lock className="h-4 w-4" />
-                            Close
+                            <XCircle className="h-4 w-4" />
+                            Close Issue
                         </Button>
                     </div>
                     <Button
