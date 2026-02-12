@@ -9,7 +9,6 @@ from app.routes.repo_files import router as repo_files_router
 from app.routes.contributor import router as contributor_router
 from app.routes.brain import router as brain_router
 from app.routes.planning import router as planning_router
-from app.redis_client import redis_client
 from app.routes.memory import router as memory_router
 
 app = FastAPI()
@@ -25,9 +24,6 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-redis_client.set("health", "ok")
-print(redis_client.get("health"))
 
 app.include_router(auth_router)
 app.include_router(github_router)
