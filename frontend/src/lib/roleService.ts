@@ -21,7 +21,8 @@ interface UpdateMemberRolePayload {
   role: UserRole;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://repomind-577n.onrender.com";
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://repomind-577n.onrender.com";
 
 async function getToken(): Promise<string | null> {
   const session = (await supabase.auth.getSession()).data.session;
@@ -36,11 +37,14 @@ export async function getCurrentUserRole(repo: string): Promise<UserRole> {
     const token = await getToken();
     if (!token) return null;
 
-    const response = await fetch(`${API_BASE}/contributors/members?repo=${encodeURIComponent(repo)}&limit=100`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${API_BASE}/contributors/members?repo=${encodeURIComponent(repo)}&limit=100`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) return null;
 
@@ -52,7 +56,9 @@ export async function getCurrentUserRole(repo: string): Promise<UserRole> {
 
     // Find current user in members list
     const currentUserMember = data.members?.find(
-      (m: RepoMember) => m.user_id === currentUserId || m.github_username === session?.user?.user_metadata?.user_name
+      (m: RepoMember) =>
+        m.user_id === currentUserId ||
+        m.github_username === session?.user?.user_metadata?.user_name,
     );
 
     return currentUserMember?.role || null;
@@ -65,7 +71,11 @@ export async function getCurrentUserRole(repo: string): Promise<UserRole> {
 /**
  * Get all members of a repository
  */
-export async function getRepoMembers(repo: string, page: number = 1, limit: number = 20): Promise<{
+export async function getRepoMembers(
+  repo: string,
+  page: number = 1,
+  limit: number = 20,
+): Promise<{
   members: RepoMember[];
   total: number;
   page: number;
@@ -81,7 +91,7 @@ export async function getRepoMembers(repo: string, page: number = 1, limit: numb
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -98,19 +108,25 @@ export async function getRepoMembers(repo: string, page: number = 1, limit: numb
 /**
  * Add a member to a repository (admin only)
  */
-export async function addRepoMember(repo: string, payload: AddMemberPayload): Promise<RepoMember> {
+export async function addRepoMember(
+  repo: string,
+  payload: AddMemberPayload,
+): Promise<RepoMember> {
   try {
     const token = await getToken();
     if (!token) throw new Error("Not authenticated");
 
-    const response = await fetch(`${API_BASE}/contributors/members?repo=${encodeURIComponent(repo)}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${API_BASE}/contributors/members?repo=${encodeURIComponent(repo)}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
@@ -131,7 +147,7 @@ export async function addRepoMember(repo: string, payload: AddMemberPayload): Pr
 export async function updateMemberRole(
   repo: string,
   userId: string,
-  payload: UpdateMemberRolePayload
+  payload: UpdateMemberRolePayload,
 ): Promise<RepoMember> {
   try {
     const token = await getToken();
@@ -146,7 +162,7 @@ export async function updateMemberRole(
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -165,7 +181,10 @@ export async function updateMemberRole(
 /**
  * Remove a member from a repository (admin only)
  */
-export async function removeRepoMember(repo: string, userId: string): Promise<void> {
+export async function removeRepoMember(
+  repo: string,
+  userId: string,
+): Promise<void> {
   try {
     const token = await getToken();
     if (!token) throw new Error("Not authenticated");
@@ -177,7 +196,7 @@ export async function removeRepoMember(repo: string, userId: string): Promise<vo
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {

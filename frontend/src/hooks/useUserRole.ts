@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useRepo } from "@/context/RepoContext";
-import { getCurrentUserRole, isAdmin, isMaintainerOrAbove, hasRepoAccess, UserRole } from "@/lib/roleService";
+import {
+  getCurrentUserRole,
+  isAdmin,
+  isMaintainerOrAbove,
+  hasRepoAccess,
+  UserRole,
+} from "@/lib/roleService";
 
 export function useUserRole() {
   const { repo } = useRepo();

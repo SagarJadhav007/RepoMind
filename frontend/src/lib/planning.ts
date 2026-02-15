@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://repomind-eight.vercel.app/";
+const API_URL =
+  import.meta.env.VITE_API_URL || "https://repomind-eight.vercel.app/";
 
 export interface PlanningCard {
   id: string;
@@ -55,7 +56,7 @@ async function apiCall(
     throw new Error(
       typeof error.detail === "string"
         ? error.detail
-        : JSON.stringify(error.detail, null, 2)
+        : JSON.stringify(error.detail, null, 2),
     );
   }
 
@@ -145,11 +146,7 @@ export async function moveCard(
 }
 
 export async function reorderCards(columnId: string, cardIds: string[]) {
-  return apiCall(
-    `/planning/cards/reorder?column_id=${columnId}`,
-    "PUT",
-    {
-      card_ids: cardIds.filter(Boolean),
-    },
-  );
+  return apiCall(`/planning/cards/reorder?column_id=${columnId}`, "PUT", {
+    card_ids: cardIds.filter(Boolean),
+  });
 }
