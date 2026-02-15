@@ -10,6 +10,7 @@ from app.routes.contributor import router as contributor_router
 from app.routes.brain import router as brain_router
 from app.routes.planning import router as planning_router
 from app.routes.memory import router as memory_router
+from app.routes.invite import router as invite_router
 
 app = FastAPI()
 
@@ -35,3 +36,4 @@ app.include_router(contributor_router)
 app.include_router(brain_router, prefix="/chat", tags=["chat"])
 app.include_router(memory_router, tags=["memory"])
 app.include_router(planning_router)
+app.include_router(invite_router)

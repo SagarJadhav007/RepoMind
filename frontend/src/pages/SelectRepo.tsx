@@ -23,6 +23,39 @@ export default function SelectRepo() {
 
   const installationId = params.get("installation_id");
 
+  /* Check profile on mount */
+  useEffect(() => {
+    async function checkProfileSetup() {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          navigate("/auth");
+          return;
+        }
+
+        const res = await fetch(
+          "https://repomind-577n.onrender.com/user/profile",
+          {
+            headers: {
+              Authorization: `Bearer ${data.session.access_token}`,
+            },
+          }
+        );
+
+        // If profile doesn't exist (404 or 401), redirect to setup
+        if (!res.ok) {
+          navigate("/profile-setup");
+          return;
+        }
+      } catch (err) {
+        console.error("Profile check failed:", err);
+        // Continue anyway - profile might not be implemented yet
+      }
+    }
+
+    checkProfileSetup();
+  }, [navigate]);
+
   /* ---------------- FETCH REPOS ---------------- */
 
   useEffect(() => {

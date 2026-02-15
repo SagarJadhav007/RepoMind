@@ -3,12 +3,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { RoleBadge } from "@/components/RoleBadge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Edit, Trash2, Loader2 } from "lucide-react";
+import { AlertCircle, Edit, Trash2, Loader2, Link2 } from "lucide-react";
 import { getRepoMembers, RepoMember } from "@/lib/roleService";
 import { useUserRole } from "@/hooks/useUserRole";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { EditMemberDialog } from "./EditMemberDialog";
 import { RemoveMemberDialog } from "./RemoveMemberDialog";
+import { InviteMemberDialog } from "./InviteMemberDialog";
 
 interface MembersListProps {
   repo: string;
@@ -23,6 +24,7 @@ export function MembersList({ repo }: MembersListProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [removeMember, setRemoveMember] = useState<RepoMember | null>(null);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const { role: userRole, loading: roleLoading } = useUserRole();
   const isAdmin = userRole === "admin";
@@ -77,9 +79,15 @@ export function MembersList({ repo }: MembersListProps) {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Repository Members ({members.length})</h3>
         {isAdmin && (
-          <Button onClick={() => setAddDialogOpen(true)} size="sm">
-            Add Member
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setAddDialogOpen(true)} size="sm">
+              Add Member
+            </Button>
+            <Button onClick={() => setInviteDialogOpen(true)} size="sm" variant="outline">
+              <Link2 className="w-4 h-4 mr-2" />
+              Invite Link
+            </Button>
+          </div>
         )}
       </div>
 
@@ -158,6 +166,16 @@ export function MembersList({ repo }: MembersListProps) {
       <RemoveMemberDialog
         repo={repo}
         member={removeMember}
+        open={removeDialogOpen}
+        onOpenChange={setRemoveDialogOpen}
+        onSuccess={fetchMembers}
+      />
+
+      <InviteMemberDialog
+        repo={repo}
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+      />
         open={removeDialogOpen}
         onOpenChange={setRemoveDialogOpen}
         onSuccess={fetchMembers}
