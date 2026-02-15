@@ -176,10 +176,7 @@ export function MembersList({ repo }: MembersListProps) {
         open={inviteDialogOpen}
         onOpenChange={setInviteDialogOpen}
       />
-        open={removeDialogOpen}
-        onOpenChange={setRemoveDialogOpen}
-        onSuccess={fetchMembers}
-      />
+      
     </div>
   );
 }
