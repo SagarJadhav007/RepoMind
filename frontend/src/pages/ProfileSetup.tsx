@@ -86,7 +86,7 @@ export default function ProfileSetup() {
   const [showSkillSearch, setShowSkillSearch] = useState(false);
   const [skillSearch, setSkillSearch] = useState("");
 
-  // Check if user is authenticated and has profile
+  // Ensure user is authenticated before showing setup
   useEffect(() => {
     async function checkAuth() {
       try {
@@ -97,25 +97,6 @@ export default function ProfileSetup() {
         }
 
         setUser(data.session.user);
-
-        // Check if user has existing profile
-        const response = await fetch(
-          "https://repomind-577n.onrender.com/user/profile",
-          {
-            headers: {
-              Authorization: `Bearer ${data.session.access_token}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          // User already has a profile, skip setup
-          setIsNewUser(false);
-          navigate("/");
-          return;
-        }
-
-        setIsNewUser(true);
         setLoading(false);
       } catch (err) {
         console.error(err);
@@ -124,6 +105,18 @@ export default function ProfileSetup() {
     }
 
     checkAuth();
+  }, [navigate]);
+
+  // If user returned from OAuth after clicking an invite link, redirect there
+  useEffect(() => {
+    const redirect = localStorage.getItem("post_auth_redirect");
+    if (redirect) {
+      localStorage.removeItem("post_auth_redirect");
+      // Safety: only redirect within app
+      if (redirect.startsWith("/")) {
+        navigate(redirect);
+      }
+    }
   }, [navigate]);
 
   const handleSkillToggle = (skill: string) => {
@@ -154,10 +147,93 @@ export default function ProfileSetup() {
       reader.readAsDataURL(file);
     }
   };
-    if (skill && !selectedSkills.includes(skill) && selectedSkills.length < 10) {
+  
+  const handleAddCustomSkill = (skill: string) => {
+    if (!skill) return;
+    if (!selectedSkills.includes(skill) && selectedSkills.length < 10) {
       setSelectedSkills((prev) => [...prev, skill]);
       setSkillSearch("");
     }
+  };
+
+  // Invite code helpers
+  const [inviteCodeInput, setInviteCodeInput] = useState("");
+  const [inviteValid, setInviteValid] = useState<any | null>(null);
+  const [inviteChecking, setInviteChecking] = useState(false);
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
+
+  const validateInviteCode = async () => {
+    if (!inviteCodeInput) return;
+    try {
+      setInviteChecking(true);
+      setError(null);
+
+      const res = await fetch(
+        `https://repomind-577n.onrender.com/invite/validate?code=${inviteCodeInput}`
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Invalid or expired invite");
+      }
+
+      const data = await res.json();
+      setInviteValid(data);
+      toast({ title: "Invite valid", description: `Invite to ${data.repo_full_name}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to validate invite";
+      setError(message);
+      setInviteValid(null);
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setInviteChecking(false);
+    }
+  };
+
+  const acceptInviteCode = async () => {
+    try {
+      setAcceptingInvite(true);
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        navigate("/auth");
+        return;
+      }
+
+      const res = await fetch("https://repomind-577n.onrender.com/invite/accept", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify({ code: inviteCodeInput }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.detail || "Failed to accept invite");
+      }
+
+      const result = await res.json();
+      toast({ title: "Success", description: result.message });
+      navigate(`/workspace/${encodeURIComponent(result.repo)}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to accept invite";
+      setError(message);
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setAcceptingInvite(false);
+    }
+  };
+
+  const handleConnectGithub = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      navigate("/auth");
+      return;
+    }
+
+    const userId = data.session.user.id;
+    window.location.href = `https://github.com/apps/RepoMind-App/installations/new?state=${userId}`;
   };
 
   const handleSaveProfile = async () => {
@@ -194,7 +270,7 @@ export default function ProfileSetup() {
 
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          profilePictureUrl = uploadData.profile_picture_url;
+          profilePictureUrl = uploadData.url || uploadData.profile_picture_url || null;
         }
       }
 
@@ -482,6 +558,38 @@ export default function ProfileSetup() {
                 "Complete Setup"
               )}
             </Button>
+          </div>
+          <div className="pt-4 border-t mt-4 space-y-3">
+            <p className="text-sm font-medium">Next steps</p>
+            <div className="flex gap-3">
+              <Button onClick={handleConnectGithub} disabled={saving} className="flex-1">
+                Connect GitHub & Select Repo
+              </Button>
+
+              <div className="flex-1">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Invite code"
+                    value={inviteCodeInput}
+                    onChange={(e) => setInviteCodeInput(e.target.value)}
+                    disabled={inviteChecking}
+                  />
+                  <Button onClick={validateInviteCode} disabled={inviteChecking || !inviteCodeInput}>
+                    {inviteChecking ? "Checking..." : "Validate"}
+                  </Button>
+                </div>
+
+                {inviteValid && (
+                  <div className="mt-2 p-3 bg-muted rounded">
+                    <p className="text-sm">Repository: {inviteValid.repo_full_name}</p>
+                    <p className="text-sm">Role: {inviteValid.role}</p>
+                    <Button onClick={acceptInviteCode} disabled={acceptingInvite} className="mt-2">
+                      {acceptingInvite ? "Accepting..." : "Accept Invite"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <p className="text-xs text-center text-muted-foreground">

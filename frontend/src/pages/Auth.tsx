@@ -18,7 +18,7 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: window.location.origin + "/connect-github",
+        redirectTo: window.location.origin + "/profile-setup",
       },
     });
 

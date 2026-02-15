@@ -49,7 +49,7 @@ export function AddMemberDialog({ repo, open, onOpenChange, onSuccess }: AddMemb
       if (!session) throw new Error("Not authenticated");
 
       const response = await fetch(
-        `https://repomind-577n.onrender.com/users/directory`,
+        `https://repomind-577n.onrender.com/user/directory`,
         {
           headers: {
             Authorization: `Bearer ${session.access_token}`,

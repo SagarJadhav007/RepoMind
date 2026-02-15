@@ -32,7 +32,24 @@ export default function AcceptInvite() {
       return;
     }
 
-    checkAuth().then(() => validateInvite());
+    (async () => {
+      // If user not authenticated, preserve redirect and send to auth
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          // store current path so we can return after OAuth
+          const returnPath = window.location.pathname + window.location.search;
+          localStorage.setItem("post_auth_redirect", returnPath);
+          navigate("/auth");
+          return;
+        }
+      } catch (err) {
+        console.error("Auth check failed:", err);
+      }
+
+      // Validate invite for authenticated users
+      await validateInvite();
+    })();
   }, [code]);
 
   const checkAuth = async () => {
