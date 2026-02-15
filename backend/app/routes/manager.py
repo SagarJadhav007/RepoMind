@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
 from app.auth.supabase import get_current_user
+from app.auth.dependencies import require_repo_maintainer
 from app.services.github_api_service import (
     get_manager_open_prs,
     get_manager_open_issues,
@@ -8,6 +9,7 @@ from app.services.github_api_service import (
     add_labels_to_issue,
 )
 from app.services.github_auth import get_installation_access_token
+from app.services.role_service import get_user_role_in_repo
 from app.db import get_db
 
 router = APIRouter(prefix="/manager", tags=["Manager"])
@@ -36,17 +38,21 @@ class BatchAddTagsRequest(BaseModel):
 def _get_repo_and_token(user_id: str, repo_full_name: str):
     supabase = get_db()
 
+    # Check if user has access to the repo (maintainer or above)
+    role = get_user_role_in_repo(user_id, repo_full_name)
+    if not role:
+        raise HTTPException(403, "You don't have access to this repository")
+
     row = (
         supabase.table("repo_dashboard_snapshot")
         .select("installation_id")
-        .eq("user_id", user_id)
         .eq("repo_full_name", repo_full_name)
         .single()
         .execute()
     )
 
     if not row.data:
-        raise HTTPException(403, "Repo not owned or not synced")
+        raise HTTPException(403, "Repo not synced")
 
     token = get_installation_access_token(row.data["installation_id"])
     owner, repo = repo_full_name.split("/")
@@ -77,7 +83,7 @@ def manager_issues(
 
 
 # -------------------------------------------------
-# Create New Issue
+# Create New Issue (requires maintainer)
 # -------------------------------------------------
 @router.post("/issues")
 def create_issue(
@@ -85,6 +91,11 @@ def create_issue(
     payload: CreateIssueRequest = None,
     user=Depends(get_current_user),
 ):
+    # Check if user is maintainer or admin
+    role = get_user_role_in_repo(user["id"], repo)
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can create issues")
+    
     token, owner, repo_name = _get_repo_and_token(user["id"], repo)
 
     issue = create_github_issue(

@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { ContributorCard } from "@/components/ContributorCard";
+import { MembersList } from "@/components/members/MembersList";
+import { RoleBadge } from "@/components/RoleBadge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Users } from "lucide-react";
 
 /* ---------------- TYPES ---------------- */
@@ -27,6 +31,9 @@ export default function Contributors() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("contributors");
+
+  const { role: userRole, loading: roleLoading } = useUserRole();
 
   async function fetchContributors(pageNum: number) {
     if (!repo) return;
@@ -95,73 +102,99 @@ export default function Contributors() {
     <WorkspaceLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">Contributors</h1>
-          <p className="text-muted-foreground">
-            Contribution metrics for this repository
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-4">
-          <StatCard label="Total" value={total} />
-          <StatCard label="Core" value={coreCount} variant="warning" />
-          <StatCard label="First-time" value={firstTimeCount} variant="success" />
-          <StatCard label="Inactive" value={inactiveCount} variant="muted" />
-        </div>
-
-        {/* List */}
-        <div className="space-y-3 min-h-[300px]">
-          {loading ? (
-            <p className="text-sm text-muted-foreground">
-              Loading contributors…
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Contributors & Members</h1>
+            <p className="text-muted-foreground">
+              Contribution metrics and team management
             </p>
-          ) : contributors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No contributors found
-            </p>
-          ) : (
-            contributors.map((c) => (
-              <ContributorCard
-                key={c.id}
-                name={c.name}
-                username={c.username}
-                commits={c.commits}
-                prsMerged={c.prs_merged}
-                issuesClosed={c.issues_closed}
-                score={c.score}
-                type={c.type}
-              />
-            ))
+          </div>
+          {!roleLoading && userRole && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Your role:</span>
+              <RoleBadge role={userRole} />
+            </div>
           )}
         </div>
 
-        {/* Pagination */}
-        <div className="flex justify-end gap-2">
-          <button
-            disabled={!hasPrev}
-            onClick={() => {
-              const p = page - 1;
-              setPage(p);
-              fetchContributors(p);
-            }}
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+            <TabsTrigger value="contributors">Contributors</TabsTrigger>
+            <TabsTrigger value="members">Team Members</TabsTrigger>
+          </TabsList>
 
-          <button
-            disabled={!hasNext}
-            onClick={() => {
-              const p = page + 1;
-              setPage(p);
-              fetchContributors(p);
-            }}
-            className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
+          {/* Contributors Tab */}
+          <TabsContent value="contributors" className="space-y-6">
+          {/* Stats */}
+          <div className="grid gap-4 sm:grid-cols-4">
+            <StatCard label="Total" value={total} />
+            <StatCard label="Core" value={coreCount} variant="warning" />
+            <StatCard label="First-time" value={firstTimeCount} variant="success" />
+            <StatCard label="Inactive" value={inactiveCount} variant="muted" />
+          </div>
+
+          {/* List */}
+          <div className="space-y-3 min-h-[300px]">
+            {loading ? (
+              <p className="text-sm text-muted-foreground">
+                Loading contributors…
+              </p>
+            ) : contributors.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No contributors found
+              </p>
+            ) : (
+              contributors.map((c) => (
+                <ContributorCard
+                  key={c.id}
+                  name={c.name}
+                  username={c.username}
+                  commits={c.commits}
+                  prsMerged={c.prs_merged}
+                  issuesClosed={c.issues_closed}
+                  score={c.score}
+                  type={c.type}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex justify-end gap-2">
+            <button
+              disabled={!hasPrev}
+              onClick={() => {
+                const p = page - 1;
+                setPage(p);
+                fetchContributors(p);
+              }}
+              className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Previous
+            </button>
+
+            <button
+              disabled={!hasNext}
+              onClick={() => {
+                const p = page + 1;
+                setPage(p);
+                fetchContributors(p);
+              }}
+              className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </TabsContent>
+
+        {/* Members Tab */}
+        {repo && (
+          <TabsContent value="members">
+            <MembersList repo={repo} />
+          </TabsContent>
+        )}
+        </Tabs>
       </div>
     </WorkspaceLayout>
   );

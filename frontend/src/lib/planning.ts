@@ -67,6 +67,10 @@ export async function getBoard(repo: string): Promise<PlanningBoard> {
   return apiCall(`/planning/board?repo=${encodeURIComponent(repo)}`);
 }
 
+export async function deleteBoard(repo: string) {
+  return apiCall(`/planning/board?repo=${encodeURIComponent(repo)}`, "DELETE");
+}
+
 // ==================== Column API ====================
 export async function createColumn(
   repo: string,

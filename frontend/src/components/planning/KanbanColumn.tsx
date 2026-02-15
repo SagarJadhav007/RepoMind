@@ -14,6 +14,7 @@ import {
 interface KanbanColumnProps {
   column: PlanningColumnType;
   index: number;
+  userRole?: string | null;
   onEditColumn: (column: PlanningColumnType) => void;
   onDeleteColumn: (columnId: string) => void;
   onAddCard: (columnId: string) => void;
@@ -24,12 +25,14 @@ interface KanbanColumnProps {
 export function KanbanColumn({
   column,
   index,
+  userRole,
   onEditColumn,
   onDeleteColumn,
   onAddCard,
   onEditCard,
   onDeleteCard,
 }: KanbanColumnProps) {
+  const isContributor = userRole === "contributor";
   return (
     <Draggable draggableId={column.id} index={index}>
       {(provided, snapshot) => (
@@ -69,26 +72,28 @@ export function KanbanColumn({
             <span className="shrink-0 rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
               {column.cards.length}
             </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEditColumn(column)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit Column
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDeleteColumn(column.id)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Column
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!isContributor && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEditColumn(column)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit Column
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDeleteColumn(column.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Column
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {/* Cards Container */}
@@ -107,6 +112,7 @@ export function KanbanColumn({
                     key={card.id}
                     card={card}
                     index={cardIndex}
+                    userRole={userRole}
                     onEdit={(card) => onEditCard(card, column.id)}
                     onDelete={(cardId) => onDeleteCard(cardId, column.id)}
                   />
@@ -122,17 +128,19 @@ export function KanbanColumn({
           </Droppable>
 
           {/* Add Card Button */}
-          <div className="p-2 pt-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-muted-foreground hover:text-foreground"
-              onClick={() => onAddCard(column.id)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Card
-            </Button>
-          </div>
+          {!isContributor && (
+            <div className="p-2 pt-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-muted-foreground hover:text-foreground"
+                onClick={() => onAddCard(column.id)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Card
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </Draggable>

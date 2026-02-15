@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends,Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from app.auth.supabase import get_current_user
 from app.db import get_db
 from datetime import datetime, timedelta
+from app.services.role_service import get_user_role_in_repo
 
 router = APIRouter(prefix="/dashboard")
 
 @router.get("/")
 def dashboard(repo: str, user=Depends(get_current_user)):
     supabase = get_db()
+
+    # Check if user has access to this repo
+    role = get_user_role_in_repo(user["id"], repo)
+    if not role:
+        raise HTTPException(403, "You don't have access to this repository")
 
     # ✅ mark this repo as recently used
     supabase.table("recent_repo").upsert(
@@ -24,7 +30,6 @@ def dashboard(repo: str, user=Depends(get_current_user)):
         .table("repo_dashboard_snapshot")
         .select("*")
         .eq("repo_full_name", repo)
-        .eq("user_id", user["id"]) 
         .execute()
     )
 
@@ -60,6 +65,11 @@ def get_dashboard_activity(
         return {"activities": []}
 
     repo = repo_res.data[0]["repo_full_name"]
+    
+    # Check if user has access to this repo
+    role = get_user_role_in_repo(user["id"], repo)
+    if not role:
+        raise HTTPException(403, "You don't have access to this repository")
 
     # 2️⃣ Fetch recent raw activity
     since = (datetime.utcnow() - timedelta(days=days)).isoformat()

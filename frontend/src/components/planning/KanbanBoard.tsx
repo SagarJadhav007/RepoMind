@@ -8,6 +8,8 @@ import { ColumnDialog } from "./ColumnDialog";
 import { CardDialog } from "./CardDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRepo } from "@/context/RepoContext";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useIsMaintainerOrAbove } from "@/hooks/useUserRole";
 import * as planningApi from "@/lib/planning";
 import {
   AlertDialog,
@@ -25,6 +27,9 @@ const initialColumns: PlanningColumnType[] = [];
 export function KanbanBoard() {
   const { repo } = useRepo();
   const { toast } = useToast();
+  const { role: userRole, loading: roleLoading } = useUserRole();
+  const { canAssignTasks } = useIsMaintainerOrAbove();
+  
   const [columns, setColumns] = useState<PlanningColumnType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,6 +47,9 @@ export function KanbanBoard() {
   // Delete confirmation state
   const [deleteColumnId, setDeleteColumnId] = useState<string | null>(null);
   const [deleteCardInfo, setDeleteCardInfo] = useState<{ cardId: string; columnId: string } | null>(null);
+  const [deleteBoardOpen, setDeleteBoardOpen] = useState(false);
+
+  const isAdmin = userRole === "admin";
 
   // Load board data on mount
   useEffect(() => {
@@ -276,10 +284,43 @@ export function KanbanBoard() {
     }
   };
 
+  const confirmDeleteBoard = async () => {
+    if (!repo) return;
+    try {
+      setSaving(true);
+      await planningApi.deleteBoard(repo);
+      setColumns([]);
+      toast({
+        title: "Success",
+        description: "Planning board deleted",
+      });
+      setDeleteBoardOpen(false);
+    } catch (error) {
+      console.error("Failed to delete board:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete board",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Drag and drop handler
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, type } = result;
     if (!destination || !repo) return;
+
+    // Contributors cannot drag
+    if (userRole === "contributor") {
+      toast({
+        title: "Permission Denied",
+        description: "Contributors cannot modify the board",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setSaving(true);
@@ -421,6 +462,18 @@ export function KanbanBoard() {
   // Render main board
   return (
     <>
+      <div className="flex justify-end gap-2 mb-4">
+        {isAdmin && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteBoardOpen(true)}
+          >
+            Delete Board
+          </Button>
+        )}
+      </div>
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="board" type="column" direction="horizontal">
           {(provided) => (
@@ -434,6 +487,7 @@ export function KanbanBoard() {
                   key={column.id}
                   column={column}
                   index={index}
+                  userRole={userRole}
                   onEditColumn={handleEditColumn}
                   onDeleteColumn={handleDeleteColumn}
                   onAddCard={handleAddCard}
@@ -442,15 +496,17 @@ export function KanbanBoard() {
                 />
               ))}
               {provided.placeholder}
-              <Button
-                variant="outline"
-                className="h-auto min-h-[120px] w-72 shrink-0 flex-col gap-2 border-dashed"
-                onClick={handleAddColumn}
-                disabled={saving}
-              >
-                <Plus className="h-6 w-6" />
-                Add Column
-              </Button>
+              {userRole !== "contributor" && (
+                <Button
+                  variant="outline"
+                  className="h-auto min-h-[120px] w-72 shrink-0 flex-col gap-2 border-dashed"
+                  onClick={handleAddColumn}
+                  disabled={saving}
+                >
+                  <Plus className="h-6 w-6" />
+                  Add Column
+                </Button>
+              )}
             </div>
           )}
         </Droppable>
@@ -501,6 +557,24 @@ export function KanbanBoard() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteCard} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Board Confirmation */}
+      <AlertDialog open={deleteBoardOpen} onOpenChange={setDeleteBoardOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Planning Board</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this entire planning board? All columns and cards will be permanently removed. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteBoard} disabled={saving} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {saving ? "Deleting..." : "Delete Board"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

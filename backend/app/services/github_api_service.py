@@ -314,6 +314,8 @@ def ingest_repo_snapshot(
     repo_name: str,
     user_id: str,
 ):
+    from app.models.roles import RoleType
+    
     repo_data = get_repo(token, owner, repo_name)
 
     issues = get_open_issues(token, owner, repo_name)
@@ -357,6 +359,25 @@ def ingest_repo_snapshot(
         .upsert(payload, on_conflict="repo_full_name") \
         .execute()
 
+    # Add user as admin of the repository
+    from app.services.role_service import get_user_role_in_repo, add_repo_member
+    
+    repo_full_name = repo_data["full_name"]
+    existing_role = get_user_role_in_repo(user_id, repo_full_name)
+    
+    if not existing_role:
+        # Get the current user's GitHub username from the token
+        user_info = get_authenticated_user(token)
+        github_username = user_info.get("login") if user_info else None
+        
+        add_repo_member(
+            repo_full_name=repo_full_name,
+            user_id=user_id,
+            github_username=github_username,
+            role=RoleType.ADMIN,
+            added_by=user_id,
+        )
+
     ingest_repo_contributors(token, owner, repo_name)
     ingest_repo_activity(token, owner, repo_name)
 
@@ -366,6 +387,11 @@ def ingest_repo_snapshot(
 # -------------------------------------------------
 # Manager APIs
 # -------------------------------------------------
+def get_authenticated_user(token: str):
+    """Get the authenticated user's GitHub information"""
+    return github_safe_get(f"{BASE_URL}/user", token)
+
+
 def get_manager_open_prs(token: str, owner: str, repo: str):
     prs = get_open_prs(token, owner, repo)
 

@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 interface KanbanCardProps {
   card: PlanningCardType;
   index: number;
+  userRole?: string | null;
   onEdit: (card: PlanningCardType) => void;
   onDelete: (cardId: string) => void;
 }
 
-export function KanbanCard({ card, index, onEdit, onDelete }: KanbanCardProps) {
+export function KanbanCard({ card, index, userRole, onEdit, onDelete }: KanbanCardProps) {
+  const isContributor = userRole === "contributor";
   return (
     <Draggable draggableId={card.id} index={index}>
       {(provided, snapshot) => (
@@ -35,24 +37,26 @@ export function KanbanCard({ card, index, onEdit, onDelete }: KanbanCardProps) {
                 <h4 className="font-medium text-card-foreground text-sm leading-tight">
                   {card.title}
                 </h4>
-                <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => onEdit(card)}
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-destructive hover:text-destructive"
-                    onClick={() => onDelete(card.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+                {!isContributor && (
+                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => onEdit(card)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => onDelete(card.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
               {card.description && (
                 <p className="mt-1 text-xs text-muted-foreground line-clamp-2">

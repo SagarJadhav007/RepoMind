@@ -4,6 +4,7 @@ from app.db import get_db
 from datetime import datetime
 from pydantic import BaseModel
 from typing import List, Optional
+from app.services.role_service import get_user_role_in_repo
 
 router = APIRouter(prefix="/planning")
 
@@ -43,6 +44,11 @@ class BoardResponse(BaseModel):
 def get_board(repo: str, user=Depends(get_current_user)):
     """Get the planning board for a specific repo"""
     supabase = get_db()
+    
+    # Check if user has access to this repo
+    role = get_user_role_in_repo(user["id"], repo)
+    if not role:
+        raise HTTPException(403, "You don't have access to this repository")
     
     # Get or create board
     board_res = supabase.table("planning_boards").select("id").eq(
@@ -97,8 +103,13 @@ def get_board(repo: str, user=Depends(get_current_user)):
 
 @router.post("/columns")
 def create_column(repo: str, data: ColumnData, user=Depends(get_current_user)):
-    """Create a new column"""
+    """Create a new column - requires maintainer role"""
     supabase = get_db()
+    
+    # Check if user has maintainer or admin role
+    role = get_user_role_in_repo(user["id"], repo)
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can create columns")
     
     # Get board
     board_res = supabase.table("planning_boards").select("id").eq(
@@ -130,8 +141,13 @@ def create_column(repo: str, data: ColumnData, user=Depends(get_current_user)):
 
 @router.put("/columns/reorder")
 def reorder_columns(repo: str = Query(...), data: ReorderColumnsRequest = Body(...), user=Depends(get_current_user)):
-    """Reorder columns"""
+    """Reorder columns - requires maintainer role"""
     supabase = get_db()
+    
+    # Check if user has maintainer or admin role
+    role = get_user_role_in_repo(user["id"], repo)
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can reorder columns")
     
     # Get board and verify ownership
     board_res = supabase.table("planning_boards").select("id").eq(
@@ -152,11 +168,20 @@ def reorder_columns(repo: str = Query(...), data: ReorderColumnsRequest = Body(.
 
 @router.put("/columns/{column_id}")
 def update_column(column_id: str, data: ColumnData, user=Depends(get_current_user)):
-    """Update a column"""
+    """Update a column - requires maintainer role"""
     supabase = get_db()
     
-    # Verify ownership
-    verify_column_ownership(supabase, column_id, user["id"])
+    # Verify ownership and get role
+    board_id = verify_column_ownership(supabase, column_id, user["id"])
+    
+    # Get repo from board
+    board = supabase.table("planning_boards").select("repo_full_name").eq("id", board_id).single().execute()
+    if not board.data:
+        raise HTTPException(404, "Board not found")
+    
+    role = get_user_role_in_repo(user["id"], board.data["repo_full_name"])
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can update columns")
     
     result = supabase.table("planning_columns").update({
         "title": data.title,
@@ -172,11 +197,20 @@ def update_column(column_id: str, data: ColumnData, user=Depends(get_current_use
 
 @router.delete("/columns/{column_id}")
 def delete_column(column_id: str, user=Depends(get_current_user)):
-    """Delete a column"""
+    """Delete a column - requires maintainer role"""
     supabase = get_db()
     
-    # Verify ownership
-    verify_column_ownership(supabase, column_id, user["id"])
+    # Verify ownership and get role
+    board_id = verify_column_ownership(supabase, column_id, user["id"])
+    
+    # Get repo from board
+    board = supabase.table("planning_boards").select("repo_full_name").eq("id", board_id).single().execute()
+    if not board.data:
+        raise HTTPException(404, "Board not found")
+    
+    role = get_user_role_in_repo(user["id"], board.data["repo_full_name"])
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can delete columns")
     
     supabase.table("planning_columns").delete().eq("id", column_id).execute()
     
@@ -186,11 +220,20 @@ def delete_column(column_id: str, user=Depends(get_current_user)):
 
 @router.post("/columns/{column_id}/cards")
 def create_card(column_id: str, data: CardData, user=Depends(get_current_user)):
-    """Create a new card"""
+    """Create a new card - requires maintainer role"""
     supabase = get_db()
     
-    # Verify ownership
-    verify_column_ownership(supabase, column_id, user["id"])
+    # Verify ownership and get role
+    board_id = verify_column_ownership(supabase, column_id, user["id"])
+    
+    # Get repo from board
+    board = supabase.table("planning_boards").select("repo_full_name").eq("id", board_id).single().execute()
+    if not board.data:
+        raise HTTPException(404, "Board not found")
+    
+    role = get_user_role_in_repo(user["id"], board.data["repo_full_name"])
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can create cards")
     
     # Get max position
     max_pos_res = supabase.table("planning_cards").select("position").eq(
@@ -220,11 +263,17 @@ def create_card(column_id: str, data: CardData, user=Depends(get_current_user)):
 
 @router.put("/cards/move")
 def move_card(card_id: str, to_column_id: str, position: int, user=Depends(get_current_user)):
-    """Move a card to a different column or position"""
+    """Move a card to a different column or position - requires maintainer role"""
     supabase = get_db()
     
-    # Verify ownership
-    verify_card_ownership(supabase, card_id, user["id"])
+    # Verify ownership and get repo
+    repo = verify_card_ownership(supabase, card_id, user["id"])
+    
+    # Check role
+    role = get_user_role_in_repo(user["id"], repo)
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can move cards")
+    
     verify_column_ownership(supabase, to_column_id, user["id"])
     
     result = supabase.table("planning_cards").update({
@@ -240,11 +289,21 @@ def move_card(card_id: str, to_column_id: str, position: int, user=Depends(get_c
 
 @router.put("/cards/reorder")
 def reorder_cards(column_id: str = Query(...), data: ReorderCardsRequest = Body(...), user=Depends(get_current_user)):
-    """Reorder cards in a column"""
+    """Reorder cards in a column - requires maintainer role"""
     supabase = get_db()
     
-    # Verify ownership
-    verify_column_ownership(supabase, column_id, user["id"])
+    # Verify ownership and get board_id
+    board_id = verify_column_ownership(supabase, column_id, user["id"])
+    
+    # Get repo from board
+    board = supabase.table("planning_boards").select("repo_full_name").eq("id", board_id).single().execute()
+    if not board.data:
+        raise HTTPException(404, "Board not found")
+    
+    # Check role
+    role = get_user_role_in_repo(user["id"], board.data["repo_full_name"])
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can reorder cards")
     
     # Update positions
     for position, card_id in enumerate(data.card_ids):
@@ -257,11 +316,16 @@ def reorder_cards(column_id: str = Query(...), data: ReorderCardsRequest = Body(
 
 @router.put("/cards/{card_id}")
 def update_card(card_id: str, data: CardData, user=Depends(get_current_user)):
-    """Update a card"""
+    """Update a card - requires maintainer role"""
     supabase = get_db()
     
-    # Verify ownership
-    verify_card_ownership(supabase, card_id, user["id"])
+    # Verify ownership and get repo
+    repo = verify_card_ownership(supabase, card_id, user["id"])
+    
+    # Check role
+    role = get_user_role_in_repo(user["id"], repo)
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can update cards")
     
     result = supabase.table("planning_cards").update({
         "title": data.title,
@@ -285,11 +349,16 @@ def update_card(card_id: str, data: CardData, user=Depends(get_current_user)):
 
 @router.delete("/cards/{card_id}")
 def delete_card(card_id: str, user=Depends(get_current_user)):
-    """Delete a card"""
+    """Delete a card - requires maintainer role"""
     supabase = get_db()
     
-    # Verify ownership
-    verify_card_ownership(supabase, card_id, user["id"])
+    # Verify ownership and get repo
+    repo = verify_card_ownership(supabase, card_id, user["id"])
+    
+    # Check role
+    role = get_user_role_in_repo(user["id"], repo)
+    if role not in ["admin", "maintainer"]:
+        raise HTTPException(403, "Only maintainers can delete cards")
     
     supabase.table("planning_cards").delete().eq("id", card_id).execute()
     
@@ -298,19 +367,23 @@ def delete_card(card_id: str, user=Depends(get_current_user)):
 # ==================== Helper Functions ====================
 
 def verify_column_ownership(supabase, column_id: str, user_id: str):
-    """Verify that the user owns the column"""
+    """Verify that the user owns the column and return board_id"""
     result = supabase.table("planning_columns").select(
-        "planning_boards(user_id)"
+        "board_id, planning_boards(user_id)"
     ).eq("id", column_id).execute()
     
     if not result.data or result.data[0]["planning_boards"]["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    return result.data[0]["board_id"]
 
 def verify_card_ownership(supabase, card_id: str, user_id: str):
-    """Verify that the user owns the card"""
+    """Verify that the user owns the card and return repo_full_name"""
     result = supabase.table("planning_cards").select(
-        "planning_columns(planning_boards(user_id))"
+        "planning_columns(board_id, planning_boards(user_id, repo_full_name))"
     ).eq("id", card_id).execute()
     
     if not result.data or result.data[0]["planning_columns"]["planning_boards"]["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    return result.data[0]["planning_columns"]["planning_boards"]["repo_full_name"]
