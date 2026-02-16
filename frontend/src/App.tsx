@@ -13,6 +13,7 @@ import Planning from "./pages/workspace/Planning";
 import Assistant from "./pages/workspace/Assistant";
 import Activity from "./pages/workspace/Activity";
 import Profile from "./pages/workspace/Profile";
+import UserProfile from "./pages/UserProfile";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import SelectRepo from "./pages/SelectRepo";
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/select-repo" element={<SelectRepo />} />
             <Route path="/connect-github" element={<ConnectGithub />} />
             <Route path="/profile-setup" element={<ProfileSetup />} />
+            <Route path="/profile" element={<UserProfile />} />
             <Route path="/invite/:code" element={<AcceptInvite />} />
             <Route path="/repo-files/:repoFullName/*" element={<RepoFilesPage />} />
 
