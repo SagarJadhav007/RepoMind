@@ -17,7 +17,6 @@ import {
   Target
 } from "lucide-react";
 
-// Interactive Feature Carousel Component
 const InteractiveFeatureCarousel = () => {
   const [currentFeature, setCurrentFeature] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
