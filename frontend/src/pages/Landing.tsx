@@ -345,10 +345,13 @@ export default function Landing() {
                 Monitor repository health, plan features collaboratively, track contributions, and leverage AI to help your team understand and navigate the codebase.
               </p>
               <div className="mt-10 flex items-center gap-4 flex-wrap">
-                <button className="px-8 py-4 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition flex items-center gap-2 shadow-sm">
-                  Explore Workspace
+                <Link 
+                  to="/auth"
+                  className="px-8 py-4 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition flex items-center gap-2 shadow-sm"
+                >
+                  Get Started
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </Link>
                 <button className="px-8 py-4 border-2 border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-semibold hover:border-amber-600 hover:text-amber-600 transition flex items-center gap-2">
                   <Github className="h-4 w-4" />
                   View on GitHub

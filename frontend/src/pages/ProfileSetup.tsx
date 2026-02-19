@@ -6,35 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle, Upload } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-const TIMEZONES = [
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Hong_Kong",
-  "Asia/Singapore",
-  "Asia/Kolkata",
-  "Australia/Sydney",
-  "Australia/Melbourne",
-];
 
 const AVAILABLE_SKILLS = [
   "JavaScript",
@@ -76,15 +51,13 @@ export default function ProfileSetup() {
   const [error, setError] = useState<string | null>(null);
 
   const [isNewUser, setIsNewUser] = useState(true);
-  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [location, setLocation] = useState("");
-  const [timezone, setTimezone] = useState("UTC");
-  const [profilePicture, setProfilePicture] = useState<File | null>(null);
-  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [showSkillSearch, setShowSkillSearch] = useState(false);
   const [skillSearch, setSkillSearch] = useState("");
+  const [interestedDomains, setInterestedDomains] = useState<string[]>([]);
+  const [domainInput, setDomainInput] = useState("");
 
   // Ensure user is authenticated before showing setup
   useEffect(() => {
@@ -96,7 +69,47 @@ export default function ProfileSetup() {
           return;
         }
 
-        setUser(data.session.user);
+        const sessionUser = data.session.user;
+        setUser(sessionUser);
+
+        const githubUsername =
+          (sessionUser.user_metadata as any)?.user_name ||
+          (sessionUser.user_metadata as any)?.preferred_username ||
+          "";
+        const githubName =
+          (sessionUser.user_metadata as any)?.full_name ||
+          (sessionUser.user_metadata as any)?.name ||
+          "";
+
+        if (githubUsername && !username) {
+          setUsername(githubUsername);
+        }
+
+        // Prefill bio from GitHub profile README if available
+        if (githubUsername) {
+          try {
+            const res = await fetch(
+              `https://api.github.com/repos/${encodeURIComponent(
+                githubUsername,
+              )}/${encodeURIComponent(githubUsername)}/readme`,
+            );
+            if (res.ok) {
+              const json = await res.json();
+              if (json?.content) {
+                const decoded = atob(json.content.replace(/\s/g, ""));
+                const firstParagraph =
+                  decoded.split(/\n{2,}/)[0]?.trim() || decoded.trim();
+                if (!bio) {
+                  setBio(firstParagraph.slice(0, 600));
+                }
+              }
+            }
+          } catch (e) {
+            // Failing to load README should not block onboarding
+            console.error("Failed to load GitHub README", e);
+          }
+        }
+
         setLoading(false);
       } catch (err) {
         console.error(err);
@@ -127,27 +140,6 @@ export default function ProfileSetup() {
     );
   };
 
-  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "Error",
-          description: "Profile picture must be less than 5MB",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setProfilePicture(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePicturePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  
   const handleAddCustomSkill = (skill: string) => {
     if (!skill) return;
     if (!selectedSkills.includes(skill) && selectedSkills.length < 10) {
@@ -156,84 +148,13 @@ export default function ProfileSetup() {
     }
   };
 
-  // Invite code helpers
-  const [inviteCodeInput, setInviteCodeInput] = useState("");
-  const [inviteValid, setInviteValid] = useState<any | null>(null);
-  const [inviteChecking, setInviteChecking] = useState(false);
-  const [acceptingInvite, setAcceptingInvite] = useState(false);
-
-  const validateInviteCode = async () => {
-    if (!inviteCodeInput) return;
-    try {
-      setInviteChecking(true);
-      setError(null);
-
-      const res = await fetch(
-        `https://repomind-577n.onrender.com/invite/validate?code=${inviteCodeInput}`
-      );
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Invalid or expired invite");
-      }
-
-      const data = await res.json();
-      setInviteValid(data);
-      toast({ title: "Invite valid", description: `Invite to ${data.repo_full_name}` });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to validate invite";
-      setError(message);
-      setInviteValid(null);
-      toast({ title: "Error", description: message, variant: "destructive" });
-    } finally {
-      setInviteChecking(false);
+  const handleAddDomain = () => {
+    const value = domainInput.trim();
+    if (!value) return;
+    if (!interestedDomains.includes(value) && interestedDomains.length < 10) {
+      setInterestedDomains((prev) => [...prev, value]);
     }
-  };
-
-  const acceptInviteCode = async () => {
-    try {
-      setAcceptingInvite(true);
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        navigate("/auth");
-        return;
-      }
-
-      const res = await fetch("https://repomind-577n.onrender.com/invite/accept", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${data.session.access_token}`,
-        },
-        body: JSON.stringify({ code: inviteCodeInput }),
-      });
-
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.detail || "Failed to accept invite");
-      }
-
-      const result = await res.json();
-      toast({ title: "Success", description: result.message });
-      navigate(`/workspace/${encodeURIComponent(result.repo)}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to accept invite";
-      setError(message);
-      toast({ title: "Error", description: message, variant: "destructive" });
-    } finally {
-      setAcceptingInvite(false);
-    }
-  };
-
-  const handleConnectGithub = async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
-      navigate("/auth");
-      return;
-    }
-
-    const userId = data.session.user.id;
-    window.location.href = `https://github.com/apps/RepoMind-App/installations/new?state=${userId}`;
+    setDomainInput("");
   };
 
   const handleSaveProfile = async () => {
@@ -241,38 +162,14 @@ export default function ProfileSetup() {
       setSaving(true);
       setError(null);
 
-      if (!fullName.trim()) {
-        setError("Full name is required");
+      if (!username.trim()) {
+        setError("Username is required");
         setSaving(false);
         return;
       }
 
       const { data } = await supabase.auth.getSession();
       if (!data.session) throw new Error("Not authenticated");
-
-      let profilePictureUrl: string | null = null;
-
-      // Upload profile picture if provided
-      if (profilePicture) {
-        const formData = new FormData();
-        formData.append("file", profilePicture);
-
-        const uploadResponse = await fetch(
-          "https://repomind-577n.onrender.com/user/upload-profile-picture",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${data.session.access_token}`,
-            },
-            body: formData,
-          }
-        );
-
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json();
-          profilePictureUrl = uploadData.url || uploadData.profile_picture_url || null;
-        }
-      }
 
       const response = await fetch(
         "https://repomind-577n.onrender.com/user/profile",
@@ -283,12 +180,10 @@ export default function ProfileSetup() {
             Authorization: `Bearer ${data.session.access_token}`,
           },
           body: JSON.stringify({
-            full_name: fullName,
+            username,
             bio,
-            location,
-            timezone,
-            profile_picture_url: profilePictureUrl,
             skills: selectedSkills,
+            interested_domains: interestedDomains,
           }),
         }
       );
@@ -303,8 +198,8 @@ export default function ProfileSetup() {
         description: "Profile setup complete!",
       });
 
-      // Redirect to repositories selection
-      navigate("/");
+      // Continue onboarding to repository selection / invite
+      navigate("/select-repo");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save profile";
       setError(message);
@@ -319,7 +214,7 @@ export default function ProfileSetup() {
   };
 
   const handleSkipSetup = () => {
-    navigate("/");
+    navigate("/select-repo");
   };
 
   if (loading) {
@@ -354,14 +249,14 @@ export default function ProfileSetup() {
             </div>
           )}
 
-          {/* Full Name */}
+          {/* Username */}
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name *</Label>
+            <Label htmlFor="username">GitHub Username *</Label>
             <Input
-              id="fullName"
-              placeholder="John Doe"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              id="username"
+              placeholder="octocat"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               disabled={saving}
             />
           </div>
@@ -371,92 +266,12 @@ export default function ProfileSetup() {
             <Label htmlFor="bio">Bio</Label>
             <Textarea
               id="bio"
-              placeholder="Tell us about yourself... (optional)"
+              placeholder="Tell us about yourself... (optional). We try to prefill this from your GitHub profile README if available."
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               disabled={saving}
               rows={3}
             />
-          </div>
-
-          {/* Location */}
-          <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              placeholder="City, Country (optional)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              disabled={saving}
-            />
-          </div>
-
-          {/* Profile Picture */}
-          <div className="space-y-2">
-            <Label htmlFor="profilePicture">Profile Picture</Label>
-            <div className="flex items-center gap-4">
-              {profilePicturePreview ? (
-                <div className="relative w-20 h-20 rounded-lg overflow-hidden border-2 border-primary">
-                  <img
-                    src={profilePicturePreview}
-                    alt="Profile preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    onClick={() => {
-                      setProfilePicture(null);
-                      setProfilePicturePreview(null);
-                    }}
-                    className="absolute top-1 right-1 bg-destructive/90 text-white rounded-full p-1 hover:bg-destructive"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ) : (
-                <div className="w-20 h-20 rounded-lg border-2 border-dashed border-border bg-muted flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground">No image</span>
-                </div>
-              )}
-              <div>
-                <input
-                  id="profilePicture"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleProfilePictureChange}
-                  disabled={saving}
-                  className="hidden"
-                />
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer"
-                >
-                  <label className="cursor-pointer flex items-center gap-2">
-                    <Upload className="w-4 h-4" />
-                    Upload
-                  </label>
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2">Max 5MB, JPG or PNG</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Timezone */}
-          <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select value={timezone} onValueChange={setTimezone} disabled={saving}>
-              <SelectTrigger id="timezone">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TIMEZONES.map((tz) => (
-                  <SelectItem key={tz} value={tz}>
-                    {tz}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Skills */}
@@ -534,6 +349,59 @@ export default function ProfileSetup() {
             </div>
           </div>
 
+          {/* Interested Domains */}
+          <div className="space-y-3">
+            <div>
+              <Label>Interested Domains (Max 10)</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                What areas are you most interested in? (e.g. DevOps, Docs, Frontend)
+              </p>
+            </div>
+
+            {interestedDomains.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {interestedDomains.map((domain) => (
+                  <Badge key={domain} variant="secondary" className="px-3 py-1.5">
+                    {domain}
+                    <button
+                      onClick={() =>
+                        setInterestedDomains((prev) =>
+                          prev.filter((d) => d !== domain),
+                        )
+                      }
+                      className="ml-1.5 hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add a domain (press Enter)"
+                value={domainInput}
+                onChange={(e) => setDomainInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddDomain();
+                  }
+                }}
+                disabled={saving || interestedDomains.length >= 10}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddDomain}
+                disabled={saving || !domainInput.trim() || interestedDomains.length >= 10}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
             <Button
@@ -546,7 +414,7 @@ export default function ProfileSetup() {
             </Button>
             <Button
               onClick={handleSaveProfile}
-              disabled={saving || !fullName.trim()}
+              disabled={saving || !username.trim()}
               className="flex-1"
             >
               {saving ? (
@@ -559,39 +427,6 @@ export default function ProfileSetup() {
               )}
             </Button>
           </div>
-          <div className="pt-4 border-t mt-4 space-y-3">
-            <p className="text-sm font-medium">Next steps</p>
-            <div className="flex gap-3">
-              <Button onClick={handleConnectGithub} disabled={saving} className="flex-1">
-                Connect GitHub & Select Repo
-              </Button>
-
-              <div className="flex-1">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Invite code"
-                    value={inviteCodeInput}
-                    onChange={(e) => setInviteCodeInput(e.target.value)}
-                    disabled={inviteChecking}
-                  />
-                  <Button onClick={validateInviteCode} disabled={inviteChecking || !inviteCodeInput}>
-                    {inviteChecking ? "Checking..." : "Validate"}
-                  </Button>
-                </div>
-
-                {inviteValid && (
-                  <div className="mt-2 p-3 bg-muted rounded">
-                    <p className="text-sm">Repository: {inviteValid.repo_full_name}</p>
-                    <p className="text-sm">Role: {inviteValid.role}</p>
-                    <Button onClick={acceptInviteCode} disabled={acceptingInvite} className="mt-2">
-                      {acceptingInvite ? "Accepting..." : "Accept Invite"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
           <p className="text-xs text-center text-muted-foreground">
             You can update your profile anytime in settings
           </p>
