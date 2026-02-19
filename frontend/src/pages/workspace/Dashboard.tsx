@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import { RepoHeader } from "@/components/RepoHeader";
 import { HealthScore } from "@/components/HealthScore";
@@ -164,24 +164,14 @@ export default function Dashboard() {
     loadDashboard();
   }, [repo]);
 
-  /* -------------------- NO REPO -------------------- */
-
-  if (!repo) {
-    return (
-      <WorkspaceLayout>
-        <div className="p-6 text-muted-foreground">
-          Select a repository from the sidebar
-        </div>
-      </WorkspaceLayout>
-    );
-  }
-
   /* -------------------- LOADING -------------------- */
 
   if (loading || !data) {
     return (
       <WorkspaceLayout>
-        <div className="p-6">Loading dashboard…</div>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <p className="text-sm text-muted-foreground">Loading dashboard…</p>
+        </div>
       </WorkspaceLayout>
     );
   }
@@ -191,14 +181,16 @@ export default function Dashboard() {
   if (!isSynced(data)) {
     return (
       <WorkspaceLayout>
-        <div className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Repository not synced</h2>
-          <p className="text-muted-foreground">
-            {data.message ?? "This repository has not been analyzed yet."}
-          </p>
-          <Button onClick={() => loadDashboard(true)}>
-            {refreshing ? "Syncing…" : "Sync repository"}
-          </Button>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="space-y-4 text-center">
+            <h2 className="text-xl font-semibold">Repository not synced</h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              {data.message ?? "This repository has not been analyzed yet."}
+            </p>
+            <Button onClick={() => loadDashboard(true)}>
+              {refreshing ? "Syncing…" : "Sync repository"}
+            </Button>
+          </div>
         </div>
       </WorkspaceLayout>
     );

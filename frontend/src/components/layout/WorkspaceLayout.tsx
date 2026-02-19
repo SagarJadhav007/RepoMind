@@ -84,7 +84,7 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
         setRepos(repoNames);
 
-        // If no repo in URL → redirect to first repo
+        // If no repo in URL → redirect to first repo when available
         if (!repo && repoNames.length > 0) {
           navigate(`/workspace/${encodeURIComponent(repoNames[0])}`, {
             replace: true,
@@ -98,9 +98,9 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     loadRepos();
   }, [repo, navigate]);
 
-  if (!repo) return null;
+  const hasRepo = Boolean(repo);
 
-  const navigation = nav(repo);
+  const navigation = repo ? nav(repo) : [];
 
   /* -------------------- RENDER -------------------- */
 
@@ -160,24 +160,31 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
         >
           {/* Navigation */}
           <nav className="flex flex-col gap-1 p-4 flex-1">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
-                    isActive
-                      ? "bg-accent/10 text-accent"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {item.name}
-                </Link>
-              );
-            })}
+            {hasRepo &&
+              navigation.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+                      isActive
+                        ? "bg-accent/10 text-accent"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+
+            {!hasRepo && !loadingRepos && (
+              <div className="mt-4 text-xs text-muted-foreground px-2">
+                No repositories connected yet.
+              </div>
+            )}
           </nav>
 
           {/* Projects */}
@@ -192,6 +199,12 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
             {loadingRepos && (
               <div className="text-xs text-muted-foreground px-2">
                 Loading repos…
+              </div>
+            )}
+
+            {!loadingRepos && repos.length === 0 && (
+              <div className="text-xs text-muted-foreground px-2">
+                No repositories found.
               </div>
             )}
 
@@ -249,7 +262,38 @@ export function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          <div className="mx-auto max-w-6xl">{children}</div>
+          <div className="mx-auto max-w-6xl">
+            {!hasRepo && !loadingRepos ? (
+              <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+                <h2 className="text-xl font-semibold">No repositories connected</h2>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Connect a GitHub repository or join a project via invite to start using the workspace.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Button
+                    onClick={async () => {
+                      const session = (await supabase.auth.getSession()).data.session;
+                      if (!session) return;
+
+                      const userId = session.user.id;
+                      window.location.href =
+                        `https://github.com/apps/RepoMind-App/installations/new?state=${userId}`;
+                    }}
+                  >
+                    <GitBranch className="mr-2 h-4 w-4" />
+                    Connect GitHub
+                  </Button>
+                  <Link to="/select-repo">
+                    <Button variant="outline">
+                      Have an invite link?
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              children
+            )}
+          </div>
         </main>
       </div>
     </div>

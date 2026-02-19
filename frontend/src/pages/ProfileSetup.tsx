@@ -180,6 +180,7 @@ export default function ProfileSetup() {
             Authorization: `Bearer ${data.session.access_token}`,
           },
           body: JSON.stringify({
+            // New schema: user_profiles table
             username,
             bio,
             skills: selectedSkills,

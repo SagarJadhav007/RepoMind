@@ -14,32 +14,40 @@ router = APIRouter(prefix="/user", tags=["User"])
 # ==================== PYDANTIC MODELS ====================
 
 class UserProfile(BaseModel):
-    full_name: str
+    """
+    Request payload for creating/updating a user profile.
+
+    This matches the public.user_profiles table:
+      id uuid primary key references auth.users (id) on delete cascade,
+      username text not null unique,
+      bio text,
+      skills text[] default '{}'::text[],
+      interested_domains text[] default '{}'::text[],
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    """
+    username: str
     bio: Optional[str] = None
-    location: Optional[str] = None
-    timezone: Optional[str] = None
     skills: Optional[List[str]] = None
-    profile_picture_url: Optional[str] = None
+    interested_domains: Optional[List[str]] = None
 
 class UserProfileResponse(BaseModel):
+    """Minimal response model matching public.user_profiles."""
     id: str
-    full_name: str
     username: str
     email: str
     bio: Optional[str]
-    location: Optional[str]
-    timezone: Optional[str]
     skills: Optional[List[str]]
-    profile_picture_url: Optional[str]
+    interested_domains: Optional[List[str]]
     created_at: str
     updated_at: str
+
 
 class UserDirectory(BaseModel):
     id: str
     username: str
-    full_name: str
     skills: Optional[List[str]]
-    timezone: Optional[str]
+    interested_domains: Optional[List[str]]
 
 # ==================== EXISTING ENDPOINTS ====================
 
@@ -67,22 +75,33 @@ def get_recent_repo(user=Depends(get_current_user)):
 
 @router.get("/profile", response_model=UserProfileResponse)
 def get_profile(user=Depends(get_current_user)):
-    """Get user profile - returns 404 if profile doesn't exist"""
+    """Get user profile from public.user_profiles - returns 404 if profile doesn't exist"""
     supabase = get_db()
-    
+
     res = (
-        supabase
-        .table("user_profiles")
+        supabase.table("user_profiles")
         .select("*")
-        .eq("user_id", user["id"])
+        .eq("id", user["id"])
         .single()
         .execute()
     )
-    
+
     if not res.data:
         raise HTTPException(status_code=404, detail="Profile not found")
-    
-    return res.data
+
+    row = res.data
+
+    # Map DB row to minimal response model
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "email": user.get("email", ""),
+        "bio": row.get("bio"),
+        "skills": row.get("skills") or [],
+        "interested_domains": row.get("interested_domains") or [],
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
 
 
 @router.post("/profile", response_model=UserProfileResponse)
@@ -90,49 +109,51 @@ def create_or_update_profile(
     profile: UserProfile,
     user=Depends(get_current_user)
 ):
-    """Create or update user profile"""
+    """Create or update user profile in public.user_profiles"""
     supabase = get_db()
-    
-    # Check if profile exists
+
+    # Check if profile exists for this user (PK = id)
     existing = (
-        supabase
-        .table("user_profiles")
+        supabase.table("user_profiles")
         .select("id")
-        .eq("user_id", user["id"])
+        .eq("id", user["id"])
         .execute()
     )
-    
+
     profile_data = {
-        "user_id": user["id"],
-        "full_name": profile.full_name,
+        "id": user["id"],
+        "username": profile.username,
         "bio": profile.bio,
-        "location": profile.location,
-        "timezone": profile.timezone,
         "skills": profile.skills or [],
-        "profile_picture_url": profile.profile_picture_url,
+        "interested_domains": profile.interested_domains or [],
         "updated_at": datetime.utcnow().isoformat(),
     }
-    
+
     if existing.data:
         # Update existing profile
         res = (
-            supabase
-            .table("user_profiles")
+            supabase.table("user_profiles")
             .update(profile_data)
-            .eq("user_id", user["id"])
+            .eq("id", user["id"])
             .execute()
         )
     else:
         # Create new profile
         profile_data["created_at"] = datetime.utcnow().isoformat()
-        res = (
-            supabase
-            .table("user_profiles")
-            .insert(profile_data)
-            .execute()
-        )
-    
-    return res.data[0] if res.data else profile_data
+        res = supabase.table("user_profiles").insert(profile_data).execute()
+
+    row = res.data[0] if res.data else profile_data
+
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "email": user.get("email", ""),
+        "bio": row.get("bio"),
+        "skills": row.get("skills") or [],
+        "interested_domains": row.get("interested_domains") or [],
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
 
 
 @router.post("/upload-profile-picture")
@@ -189,8 +210,9 @@ def get_user_directory(
     supabase = get_db()
     
     try:
-        query = supabase.table("user_profiles").select("user_id, full_name, timezone, skills")
-        
+        # Match new schema: id, username, bio, skills, interested_domains
+        query = supabase.table("user_profiles").select("id, username, skills, interested_domains")
+
         # Add search filter if provided
         if search:
             # Use Supabase full-text search or filter (depends on DB setup)
@@ -202,22 +224,19 @@ def get_user_directory(
         
         users = []
         for profile in res.data:
-            # Get username from auth users if available
             users.append({
-                "id": profile["user_id"],
-                "username": profile.get("username", ""),  # Will need to join with auth table
-                "full_name": profile.get("full_name", ""),
-                "timezone": profile.get("timezone"),
-                "skills": profile.get("skills", [])
+                "id": profile["id"],
+                "username": profile.get("username", ""),
+                "skills": profile.get("skills", []),
+                "interested_domains": profile.get("interested_domains", []),
             })
-        
+
         # Filter by search query in Python if needed
         if search:
             search_lower = search.lower()
             users = [
-                u for u in users 
-                if search_lower in u["full_name"].lower() or 
-                   search_lower in u.get("username", "").lower()
+                u for u in users
+                if search_lower in u.get("username", "").lower()
             ]
         
         return {"users": users}
