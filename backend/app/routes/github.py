@@ -20,6 +20,11 @@ from app.services.github_webhook_handlers import (
 
 from app.auth.supabase import get_current_user
 from app.db import get_db
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BASE_URL = os.getenv("BASE_URL")
 
 router = APIRouter(prefix="/github")
 
@@ -52,7 +57,7 @@ def github_callback(
     ).execute()
 
     return RedirectResponse(
-        url=f"https://repomind-eight.vercel.app/select-repo?installation_id={installation_id}"
+        url=f"{BASE_URL}/select-repo?installation_id={installation_id}"
     )
 
 
