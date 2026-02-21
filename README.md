@@ -2,7 +2,7 @@
 AI-Powered Repository Management Platform  
 Live Demo • GitHub App • Cloud-Native Deployment  
 
-🌐 Live: <ADD YOUR FRONTEND URL>
+🌐 Live: https://repomind-eight.vercel.app/
 
 ---
 
