@@ -104,7 +104,7 @@ RepoMind uses a modern cloud-native architecture built for scalability and autom
 ### Clone Repository
 
 ```bash
-git clone https://github.com/your-username/RepoMind.git
+git clone https://github.com/SagarJadhav007/RepoMind.git
 cd RepoMind
 ```
 
