@@ -52,7 +52,7 @@ def github_callback(
     ).execute()
 
     return RedirectResponse(
-        url=f"https://repomind-eight.vercel.app/select-repo?installation_id={installation_id}"
+        url=f"https://localhost:8080/select-repo?installation_id={installation_id}"
     )
 
 

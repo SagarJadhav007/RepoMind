@@ -19,8 +19,8 @@ type Repo = {
 export default function SelectRepo() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-   // Invite code state (moved from profile setup)
   const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [inviteValid, setInviteValid] = useState<any | null>(null);
   const [inviteChecking, setInviteChecking] = useState(false);
@@ -32,39 +32,45 @@ export default function SelectRepo() {
 
   const installationId = params.get("installation_id");
 
-  /* Profile check moved to ProfileSetup — load repos below */
-
   /* ---------------- FETCH REPOS ---------------- */
 
   useEffect(() => {
     async function loadRepos() {
       try {
+        // 🚨 Prevent invalid API call
+        if (!installationId) {
+          setError("Missing installation. Please connect GitHub first.");
+          setLoading(false);
+          return;
+        }
+
         const { data } = await supabase.auth.getSession();
+
         if (!data.session) {
           throw new Error("Not authenticated");
         }
 
-        let url = "https://repomind-577n.onrender.com/github/repos";
-
-        // If GitHub redirected back after install
-        if (installationId) {
-          url += `?installation_id=${installationId}`;
-        }
-
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${data.session.access_token}`,
-          },
-        });
+        const res = await fetch(
+          `https://repomind-577n.onrender.com/github/repos?installation_id=${installationId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${data.session.access_token}`,
+            },
+          }
+        );
 
         if (!res.ok) {
-          throw new Error("Failed to fetch repositories");
+          const err = await res.json();
+          throw new Error(err.detail || "Failed to fetch repositories");
         }
 
         const json = await res.json();
         setRepos(Array.isArray(json) ? json : []);
       } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Something went wrong";
         console.error(err);
+        setError(message);
         setRepos([]);
       } finally {
         setLoading(false);
@@ -74,7 +80,7 @@ export default function SelectRepo() {
     loadRepos();
   }, [installationId]);
 
-  /* ---------------- ADD / UPDATE INSTALLATION ---------------- */
+  /* ---------------- ADD INSTALLATION ---------------- */
 
   const addRepo = async () => {
     const { data } = await supabase.auth.getSession();
@@ -89,89 +95,17 @@ export default function SelectRepo() {
       `https://github.com/apps/RepoMind-App/installations/new?state=${userId}`;
   };
 
-  /* ---------------- INVITE CODE HELPERS ---------------- */
-
-  const validateInviteCode = async () => {
-    if (!inviteCodeInput) return;
-    try {
-      setInviteChecking(true);
-
-      const res = await fetch(
-        `https://repomind-577n.onrender.com/invite/validate?code=${inviteCodeInput}`,
-      );
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Invalid or expired invite");
-      }
-
-      const data = await res.json();
-      setInviteValid(data);
-      toast({
-        title: "Invite valid",
-        description: `Invite to ${data.repo_full_name}`,
-      });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to validate invite";
-      setInviteValid(null);
-      toast({
-        title: "Error",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setInviteChecking(false);
-    }
-  };
-
-  const acceptInviteCode = async () => {
-    try {
-      setAcceptingInvite(true);
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        navigate("/auth");
-        return;
-      }
-
-      const res = await fetch(
-        "https://repomind-577n.onrender.com/invite/accept",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${data.session.access_token}`,
-          },
-          body: JSON.stringify({ code: inviteCodeInput }),
-        },
-      );
-
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.detail || "Failed to accept invite");
-      }
-
-      const result = await res.json();
-      toast({ title: "Success", description: result.message });
-      navigate(`/workspace/${encodeURIComponent(result.repo)}`);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to accept invite";
-      toast({
-        title: "Error",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setAcceptingInvite(false);
-    }
-  };
-
   /* ---------------- SELECT REPO ---------------- */
 
   const selectRepo = async (repoFullName: string) => {
     try {
+      if (!installationId) {
+        alert("Installation missing");
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
+
       if (!data.session) {
         alert("Not authenticated");
         return;
@@ -186,22 +120,105 @@ export default function SelectRepo() {
             Authorization: `Bearer ${data.session.access_token}`,
           },
           body: JSON.stringify({
-            installation_id: installationId
-              ? Number(installationId)
-              : undefined,
+            installation_id: Number(installationId),
             repo: repoFullName,
           }),
         }
       );
 
       if (!res.ok) {
-        throw new Error("Sync failed");
+        const err = await res.json();
+        throw new Error(err.detail || "Sync failed");
       }
 
       navigate(`/workspace/${encodeURIComponent(repoFullName)}`);
     } catch (err) {
       console.error(err);
-      alert("Failed to sync repository");
+      alert(
+        err instanceof Error ? err.message : "Failed to sync repository"
+      );
+    }
+  };
+
+  /* ---------------- INVITE HELPERS ---------------- */
+
+  const validateInviteCode = async () => {
+    if (!inviteCodeInput) return;
+
+    try {
+      setInviteChecking(true);
+
+      const res = await fetch(
+        `https://repomind-577n.onrender.com/invite/validate?code=${inviteCodeInput}`
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Invalid invite");
+      }
+
+      setInviteValid(data);
+
+      toast({
+        title: "Invite valid",
+        description: `Repo: ${data.repo_full_name}`,
+      });
+    } catch (err) {
+      setInviteValid(null);
+
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Validation failed",
+        variant: "destructive",
+      });
+    } finally {
+      setInviteChecking(false);
+    }
+  };
+
+  const acceptInviteCode = async () => {
+    try {
+      setAcceptingInvite(true);
+
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        navigate("/auth");
+        return;
+      }
+
+      const res = await fetch(
+        "https://repomind-577n.onrender.com/invite/accept",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.session.access_token}`,
+          },
+          body: JSON.stringify({ code: inviteCodeInput }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.detail || "Failed to accept invite");
+      }
+
+      toast({ title: "Success", description: result.message });
+
+      navigate(`/workspace/${encodeURIComponent(result.repo)}`);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to accept invite",
+        variant: "destructive",
+      });
+    } finally {
+      setAcceptingInvite(false);
     }
   };
 
@@ -209,6 +226,17 @@ export default function SelectRepo() {
 
   if (loading) {
     return <div className="p-6">Loading repositories…</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-red-500">
+        {error}
+        <div className="mt-4">
+          <Button onClick={addRepo}>Connect GitHub</Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -222,26 +250,26 @@ export default function SelectRepo() {
           </Button>
         </div>
 
-        {repos.length === 0 && (
+        {repos.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No repositories connected yet
+            No repositories found in this installation
           </p>
+        ) : (
+          repos.map((repo) => (
+            <Card key={repo.full_name}>
+              <CardHeader>
+                <CardTitle>{repo.full_name}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-end">
+                <Button onClick={() => selectRepo(repo.full_name)}>
+                  Use this repo
+                </Button>
+              </CardContent>
+            </Card>
+          ))
         )}
 
-        {repos.map((repo) => (
-          <Card key={repo.full_name}>
-            <CardHeader>
-              <CardTitle>{repo.full_name}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex justify-end">
-              <Button onClick={() => selectRepo(repo.full_name)}>
-                Use this repo
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-
-        {/* Invite code section */}
+        {/* Invite Section */}
         <Card>
           <CardHeader>
             <CardTitle>Have an invite code?</CardTitle>
@@ -265,7 +293,7 @@ export default function SelectRepo() {
             {inviteValid && (
               <div className="mt-2 p-3 bg-muted rounded">
                 <p className="text-sm">
-                  Repository: {inviteValid.repo_full_name}
+                  Repo: {inviteValid.repo_full_name}
                 </p>
                 <p className="text-sm">Role: {inviteValid.role}</p>
                 <Button

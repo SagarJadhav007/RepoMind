@@ -15,7 +15,7 @@ export default function ConnectGithub() {
     const userId = session.user.id;
 
     window.location.href =
-      `https://github.com/apps/RepoMind-App/installations/new?state=${userId}`;
+      `https://github.com/apps/repomind-ai-app/installations/new?state=${userId}`;
   };
 
   return (

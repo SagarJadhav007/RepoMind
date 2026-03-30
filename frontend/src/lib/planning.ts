@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "https://repomind-eight.vercel.app/";
+  import.meta.env.VITE_API_URL || "https://localhost:8080/";
 
 export interface PlanningCard {
   id: string;
